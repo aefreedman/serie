@@ -7,6 +7,7 @@ mod external;
 mod git;
 mod graph;
 mod keybind;
+mod ordering;
 mod plastic;
 mod protocol;
 mod search;
@@ -20,6 +21,10 @@ mod graph_tests;
 #[cfg(test)]
 #[path = "tests/plastic_integration.rs"]
 mod plastic_integration_tests;
+
+#[cfg(test)]
+#[path = "tests/ordering.rs"]
+mod ordering_tests;
 
 #[cfg(test)]
 #[path = "tests/mailmap.rs"]
@@ -59,6 +64,10 @@ struct Args {
     /// Image protocol to render graph [default: auto]
     #[arg(short, long, value_name = "TYPE")]
     protocol: Option<ImageProtocolType>,
+
+    /// Changeset ordering algorithm [default: chrono]
+    #[arg(short, long, value_name = "TYPE")]
+    order: Option<CommitOrderType>,
 
     /// Changeset graph cell width [default: auto]
     #[arg(short, long, value_name = "TYPE")]
@@ -165,18 +174,18 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> Result<()> {
     let args = Args::parse();
+    let (mut core_config, ui_config, graph_config, color_theme, keybind_patch) = config::load()?;
+    let order = resolve_order(args.order, core_config.option.order);
     if args.dump {
-        let repository = git::Repository::load_plastic(&args.workspace, args.max_count)?;
+        let repository = git::Repository::load_plastic(&args.workspace, order, args.max_count)?;
         return dump_repository(&repository, args.detail.as_deref());
     }
-    let (mut core_config, ui_config, graph_config, color_theme, keybind_patch) = config::load()?;
     core_config.user_command.commands.clear();
     core_config.external.clipboard = config::ClipboardConfig::Auto;
     let keybind = keybind::KeyBind::new(keybind_patch);
 
     let max_count = args.max_count;
     let image_protocol = args.protocol.or(core_config.option.protocol).into();
-    // Plastic uses producer changeset order; no Git ordering or mailmap queries.
     let graph_width = args.graph_width.or(core_config.option.graph_width);
     let graph_style = args.graph_style.or(core_config.option.graph_style).into();
     let graph_image_width_mode = graph_config.row_image_width;
@@ -202,7 +211,7 @@ fn main() -> Result<()> {
 
     let ret = (|| -> Result<()> {
         let ret = loop {
-            let repository = git::Repository::load_plastic(&args.workspace, max_count)?;
+            let repository = git::Repository::load_plastic(&args.workspace, order, max_count)?;
 
             if repository.all_commits().is_empty() {
                 break Err(std::io::Error::other(
@@ -260,9 +269,19 @@ fn main() -> Result<()> {
 
 fn dump_repository(repository: &git::Repository, detail_id: Option<&str>) -> Result<()> {
     use std::io::{self, Write};
+    let mut out = io::BufWriter::new(io::stdout().lock());
+    write_repository_dump(repository, detail_id, &mut out)?;
+    out.flush()?;
+    Ok(())
+}
+
+fn write_repository_dump(
+    repository: &git::Repository,
+    detail_id: Option<&str>,
+    out: &mut impl std::io::Write,
+) -> Result<()> {
     let snapshot = repository.snapshot().expect("Plastic snapshot");
     let graph = graph::calc_graph(repository, None);
-    let mut out = io::BufWriter::new(io::stdout().lock());
     writeln!(
         out,
         "Serie Plastic read-only; primary + ordinary merge graph; typed integrations listed separately"
@@ -279,7 +298,9 @@ fn dump_repository(repository: &git::Repository, detail_id: Option<&str>) -> Res
     for warning in repository.warnings() {
         writeln!(out, "WARNING {warning}")?;
     }
-    for cs in &snapshot.changesets {
+    let mut changesets: Vec<_> = snapshot.changesets.iter().collect();
+    changesets.sort_by_key(|cs| graph.commit_pos_map[&git::CommitHash::from(cs.key.id.as_str())].1);
+    for cs in changesets {
         let hash = git::CommitHash::from(cs.key.id.as_str());
         let (x, y) = graph.commit_pos_map[&hash];
         writeln!(
@@ -379,6 +400,37 @@ fn dump_repository(repository: &git::Repository, detail_id: Option<&str>) -> Res
             )?;
         }
     }
-    out.flush()?;
     Ok(())
+}
+
+fn resolve_order(cli: Option<CommitOrderType>, config: Option<CommitOrderType>) -> git::SortCommit {
+    cli.or(config).into()
+}
+
+#[cfg(test)]
+mod ordering_cli_tests {
+    use super::*;
+
+    #[test]
+    fn order_cli_config_default_precedence() {
+        assert!(matches!(
+            resolve_order(None, None),
+            git::SortCommit::Chronological
+        ));
+        assert!(matches!(
+            resolve_order(None, Some(CommitOrderType::Topo)),
+            git::SortCommit::Topological
+        ));
+        let args = Args::try_parse_from(["serie", "--dump", "--order", "chrono"]).unwrap();
+        assert!(matches!(
+            resolve_order(args.order, Some(CommitOrderType::Topo)),
+            git::SortCommit::Chronological
+        ));
+        let args = Args::try_parse_from(["serie", "-o", "topo"]).unwrap();
+        assert!(matches!(
+            resolve_order(args.order, Some(CommitOrderType::Chrono)),
+            git::SortCommit::Topological
+        ));
+        assert!(Args::try_parse_from(["serie", "--order", "invalid"]).is_err());
+    }
 }

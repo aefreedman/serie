@@ -110,9 +110,35 @@ been verified; text row construction, navigation/search regressions, and headles
 loading have automated coverage. Font/terminal behavior can still vary.
 
 Existing Serie UI/keybind/config options remain for compatibility. Git-specific
-mailmap/order settings are inert; there is no Git backend CLI selection. Some
+mailmap settings are inert; there is no Git backend CLI selection. Some
 internal config/search terminology still uses "commit", "hash", or "tag";
 these mean changeset number and label on the Plastic path.
+
+## Changeset ordering
+
+`--order chrono|topo` (or `-o`) overrides `[core.option] order` in config;
+without either, `chrono` is used. The choice applies to initial load, refresh,
+and `--dump` rows. Upstream Serie uses Git `--date-order` and `--topo-order`;
+Plastic implements their child-before-parent and branch-cohesion intent locally:
+
+- **chrono** chooses the newest timestamp among changesets whose loaded children
+  have all been emitted. Primary and ordinary merge parents always follow their
+  children, even with timestamp skew; this is not a naive timestamp sort.
+- **topo** starts with the newest eligible tip, then follows newly unblocked
+  parents depth-first before returning to other tips. Primary parents are preferred
+  over ordinary merge parents when both become eligible. Shared parents wait for
+  every loaded child, keeping branch runs together where the DAG permits it;
+  this is not branch-name grouping or an alias for chrono.
+
+Date-priority choices (chrono's ready set and topo's remaining tips) compare
+instants including timezone offsets; ties choose descending numeric changeset IDs,
+then qualified selectors. Topo's newly unblocked ancestry takes precedence over
+tip timestamps. Ordinary merge parent traversal is deterministic by qualified
+destination/source selector and object ID. Neither mode changes the bounded newest-ID query window, adds missing
+nodes, invents ancestry, or rewrites dates, primary parents, integrations, or raw
+snapshot evidence. Dump row order follows the selected order while metadata retains
+producer values. Ordering only constrains loaded, qualified primary and ordinary
+merge endpoints; other integration types remain evidence, not ancestry.
 
 ## Honest graph boundaries
 
@@ -140,5 +166,5 @@ transactional snapshot; concurrent checkins/reference edits can race. Live
 fixtures cover labels using cm's MARKER records, including a label on sandbox
 changeset 16. Nonordinary integration types have synthetic test coverage only. Oversized details fail, not paginate.
 Direct child execution is bounded, but there is no hostile process-tree
-containment: trusted cm is assumed. Unsupported parent ordering/cycles fail
-explicitly before graph rendering.
+containment: trusted cm is assumed. Cycles in loaded primary/ordinary merge
+ancestry fail explicitly before graph rendering.

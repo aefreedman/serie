@@ -8,7 +8,7 @@ use crate::{
     protocol::ImageProtocol,
 };
 
-fn snapshot() -> Snapshot {
+pub(super) fn snapshot() -> Snapshot {
     let changesets =
         parse_changesets(include_str!("../../tests/fixtures/plastic/changesets.xml")).unwrap();
     let repository = changesets[0].key.repository.clone();
@@ -379,12 +379,14 @@ fn ordinary_merge_edges_deduplicate_and_respect_window() {
 }
 
 #[test]
-fn unsupported_parent_and_merge_order_fails_without_graph_panic() {
+fn unordered_input_and_reverse_merge_edges_are_repaired_without_graph_panic() {
     let mut snap = snapshot();
     snap.changesets.reverse();
-    assert!(Repository::from_plastic(Backend::new(".", Limits::default()).unwrap(), snap).is_err());
+    let repo = adapt(snap);
+    assert_eq!(graph::calc_graph(&repo, None).commits.len(), 40);
     let mut snap = snapshot();
     let link = &mut snap.integrations[0];
     std::mem::swap(&mut link.source, &mut link.destination);
-    assert!(Repository::from_plastic(Backend::new(".", Limits::default()).unwrap(), snap).is_err());
+    let repo = adapt(snap);
+    assert_eq!(graph::calc_graph(&repo, None).commits.len(), 40);
 }

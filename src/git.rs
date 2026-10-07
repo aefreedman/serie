@@ -120,7 +120,7 @@ pub struct Repository {
 
     ref_map: RefMap,
     head: Head,
-    // to preserve order of the original commits from `git log`, we store the commit hashes
+    // Graph/display order; the Plastic snapshot retains raw producer order.
     commit_hashes: Vec<CommitHash>,
 }
 
@@ -188,33 +188,35 @@ impl Repository {
     /// Adapt the single qualified Plastic repository to the existing graph model.
     /// Primary parents stay first; ordinary merges add deduplicated layout edges.
     /// Typed integrations remain separate evidence; nonordinary links are not ancestry.
-    pub fn load_plastic(path: &Path, max_count: Option<usize>) -> Result<Self> {
+    pub fn load_plastic(path: &Path, sort: SortCommit, max_count: Option<usize>) -> Result<Self> {
         let mut limits = crate::plastic::Limits::default();
         if let Some(n) = max_count {
             limits.changesets = n;
         }
         let backend = crate::plastic::Backend::new(path, limits)?;
         let snapshot = backend.load()?;
-        Self::from_plastic(backend, snapshot)
+        Self::from_plastic_ordered(backend, snapshot, sort)
     }
 
     pub fn from_plastic(
         backend: crate::plastic::Backend,
         snapshot: crate::plastic::Snapshot,
     ) -> Result<Self> {
+        Self::from_plastic_ordered(backend, snapshot, SortCommit::Chronological)
+    }
+
+    pub fn from_plastic_ordered(
+        backend: crate::plastic::Backend,
+        snapshot: crate::plastic::Snapshot,
+        sort: SortCommit,
+    ) -> Result<Self> {
+        let order = crate::ordering::indices(&snapshot, sort)?;
         let positions: FxHashMap<_, _> = snapshot
             .changesets
             .iter()
             .enumerate()
             .map(|(index, cs)| (&cs.key, index))
             .collect();
-        for (index, cs) in snapshot.changesets.iter().enumerate() {
-            if let Some(parent) = &cs.primary_parent {
-                if positions.get(parent).is_some_and(|p| *p <= index) {
-                    return Err("unsupported history ordering/cycle: graph requires loaded primary parents after children".into());
-                }
-            }
-        }
         let mut commits = Vec::new();
         for cs in &snapshot.changesets {
             let date = DateTime::parse_from_rfc3339(&cs.date)?;
@@ -251,6 +253,7 @@ Primary parent: {}",
                 parent_commit_hashes: cs
                     .primary_parent
                     .iter()
+                    .filter(|p| p.repository == snapshot.loaded_changeset.repository)
                     .map(|p| p.id.as_str().into())
                     .collect(),
             });
@@ -268,22 +271,22 @@ Primary parent: {}",
             )
         });
         for integration in ordinary {
-            let (Some(source), Some(destination)) = (
+            let (Some(_source), Some(destination)) = (
                 positions.get(&integration.source),
                 positions.get(&integration.destination),
             ) else {
                 continue;
             };
-            if source <= destination {
-                return Err("unsupported ordinary merge ordering/cycle: graph requires source after destination".into());
-            }
             let source_hash: CommitHash = integration.source.id.as_str().into();
             let parents = &mut commits[*destination].parent_commit_hashes;
             if !parents.contains(&source_hash) {
                 parents.push(source_hash);
             }
         }
-        let hashes = commits.iter().map(|c| c.commit_hash.clone()).collect();
+        let hashes = order
+            .iter()
+            .map(|&i| commits[i].commit_hash.clone())
+            .collect();
         let (parents, children) = build_commits_maps(&commits);
         let mut refs = RefMap::default();
         for r in &snapshot.references {
