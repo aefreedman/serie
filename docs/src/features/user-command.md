@@ -1,7 +1,9 @@
 # User Command (Plastic)
 
 Only explicitly configured operator commands execute. There is no built-in Git,
-diff or mutation command. The history backend remains read-only; configured
+diff or mutation command. Built-in text and binary diffs are intentionally out of
+scope; use Plastic's GUI for changeset comparisons. Explicit user commands remain
+optional, not a promised built-in diff workflow. The history backend remains read-only; configured
 commands are **trusted operator intent**, can have effects, and are not restricted
 to read-only operations. Do not configure untrusted executables or arguments.
 Explicit custom clipboard subprocesses are honored via `core.external.clipboard`;

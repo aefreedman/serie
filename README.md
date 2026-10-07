@@ -35,7 +35,11 @@ are configured by default. Clipboard copying defaults to the system clipboard li
 receives the exact qualified selector as UTF-8 stdin without an added newline.
 It runs without a shell, reports failures, and has no timeout; it can block or
 have effects. See [clipboard config](docs/src/configurations/config-file-format.md#coreexternalclipboard).
-There is no default Git diff command. Historical diffs are deferred.
+Built-in file/changeset diffing is intentionally out of scope, including binary
+diffs. Use Plastic's own GUI for changeset comparisons. The port focuses on
+history graphs, metadata and changed-file lists; this is an intentional difference
+from upstream Serie's default Git diff action. Explicit user commands remain an
+optional escape hatch, but no diff command is configured by default.
 
 ## Headless validation
 
