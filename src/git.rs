@@ -478,20 +478,7 @@ Integration [{}]: {} -> {}; base: {}",
                 ));
             }
             let changes = match self.plastic_detail(cs.key.id.as_str()) {
-                Ok(detail) => detail
-                    .paths
-                    .into_iter()
-                    .map(|p| FileChange::Plastic {
-                        description: format!(
-                            "{} {} -> {} [rev {}, parent rev {}]",
-                            p.change_type,
-                            p.source_path,
-                            p.destination_path,
-                            p.revision_id,
-                            p.parent_revision_id
-                        ),
-                    })
-                    .collect(),
+                Ok(detail) => detail.paths.into_iter().map(FileChange::from).collect(),
                 Err(error) => {
                     commit.body.push_str(&format!(
                         "
@@ -924,11 +911,17 @@ fn get_current_branch(path: &Path) -> Option<String> {
 
 #[derive(Debug)]
 pub enum FileChange {
-    Plastic { description: String },
+    Plastic { change: crate::plastic::ChangedPath },
     Add { path: String },
     Modify { path: String },
     Delete { path: String },
     Move { from: String, to: String },
+}
+
+impl From<crate::plastic::ChangedPath> for FileChange {
+    fn from(change: crate::plastic::ChangedPath) -> Self {
+        Self::Plastic { change }
+    }
 }
 
 #[cfg(test)]

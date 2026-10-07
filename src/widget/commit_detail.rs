@@ -276,7 +276,30 @@ impl CommitDetail<'_> {
         self.changes
             .iter()
             .map(|c| match c {
-                FileChange::Plastic { description } => Line::raw(description),
+                FileChange::Plastic { change } => {
+                    // Match only observed log Type values; future statuses stay neutral.
+                    let color = match change.change_type.as_str() {
+                        "Added" => Some(self.ctx.color_theme.detail_file_change_add_fg),
+                        "Changed" => Some(self.ctx.color_theme.detail_file_change_modify_fg),
+                        "Deleted" => Some(self.ctx.color_theme.detail_file_change_delete_fg),
+                        "Moved" => Some(self.ctx.color_theme.detail_file_change_move_fg),
+                        _ => None,
+                    };
+                    let status = Span::raw(&change.change_type);
+                    Line::from(vec![
+                        match color {
+                            Some(color) => status.fg(color),
+                            None => status,
+                        },
+                        Span::raw(format!(
+                            " {} -> {} [rev {}, parent rev {}]",
+                            change.source_path,
+                            change.destination_path,
+                            change.revision_id,
+                            change.parent_revision_id
+                        )),
+                    ])
+                }
                 FileChange::Add { path } => Line::from(vec![
                     "A".fg(self.ctx.color_theme.detail_file_change_add_fg),
                     " ".into(),
@@ -334,4 +357,109 @@ fn has_refs(refs: &[Ref]) -> bool {
             Ref::Branch { .. } | Ref::RemoteBranch { .. } | Ref::Tag { .. }
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        color::ColorTheme,
+        config::{CoreConfig, UiConfig},
+        keybind::KeyBind,
+        plastic::{parse_detail, ChangesetId, QualifiedChangeset, Repository},
+        protocol::ImageProtocol,
+    };
+    use ratatui::style::Color;
+
+    #[test]
+    fn plastic_status_colors_preserve_parsed_evidence_in_rendered_cells() {
+        let theme = ColorTheme {
+            fg: Color::Rgb(101, 102, 103),
+            detail_file_change_add_fg: Color::Rgb(11, 12, 13),
+            detail_file_change_modify_fg: Color::Rgb(21, 22, 23),
+            detail_file_change_delete_fg: Color::Rgb(31, 32, 33),
+            detail_file_change_move_fg: Color::Rgb(41, 42, 43),
+            ..ColorTheme::default()
+        };
+        // Log Type vocabulary is documented by ChangedPath and the parsed
+        // detail-16.xml fixture. Do not infer operations from prefixes/aliases.
+        let cases = [
+            ("Added", theme.detail_file_change_add_fg),
+            ("Changed", theme.detail_file_change_modify_fg),
+            ("Deleted", theme.detail_file_change_delete_fg),
+            ("Moved", theme.detail_file_change_move_fg),
+            ("FutureOperation", theme.fg),
+            ("AddedPlus", theme.fg),
+            ("changed", theme.fg),
+            ("A", theme.fg),
+            ("Modified", theme.fg),
+            ("", theme.fg),
+        ];
+        let ctx = Rc::new(AppContext {
+            workspace: ".".into(),
+            keybind: KeyBind::default(),
+            core_config: CoreConfig::default(),
+            ui_config: UiConfig::default(),
+            color_theme: theme.clone(),
+            image_protocol: ImageProtocol::Text,
+        });
+        let requested = QualifiedChangeset {
+            repository: Repository {
+                name: "synthetic".into(),
+                server: "example.invalid:8087".into(),
+            },
+            id: ChangesetId::new("17").unwrap(),
+        };
+        for (raw_status, expected_color) in cases {
+            // Synthetic XML exercises parser -> FileChange -> widget; the
+            // unequal paths and opaque revision strings must not be normalized.
+            let xml = format!(
+                "<LogList><Changeset><ChangesetId>17</ChangesetId><Changes><Item>\
+                 <SrcCmPath>/old &amp; café.txt</SrcCmPath>\
+                 <DstCmPath>/new &amp; café.txt</DstCmPath><Type>{raw_status}</Type>\
+                 <RevId>rev-0042</RevId><ParentRevId>parent-0037</ParentRevId>\
+                 </Item></Changes></Changeset></LogList>"
+            );
+            let detail = parse_detail(&xml, &requested).unwrap();
+            let changes: Vec<FileChange> = detail.paths.into_iter().map(FileChange::from).collect();
+            let FileChange::Plastic { change } = &changes[0] else {
+                panic!("Plastic evidence was converted to a lossy Git operation");
+            };
+            assert_eq!(change.change_type, raw_status);
+            assert_eq!(change.source_path, "/old & café.txt");
+            assert_eq!(change.destination_path, "/new & café.txt");
+            assert_eq!(change.revision_id, "rev-0042");
+            assert_eq!(change.parent_revision_id, "parent-0037");
+
+            let commit = Commit::default();
+            let refs = Vec::new();
+            let widget = CommitDetail::new(&commit, &changes, &refs, ctx.clone());
+            let area = Rect::new(0, 0, 160, 24);
+            let mut buffer = Buffer::empty(area);
+            widget.render(area, &mut buffer, &mut CommitDetailState::default());
+            let expected = format!(
+                "{raw_status} /old & café.txt -> /new & café.txt [rev rev-0042, parent rev parent-0037]"
+            );
+            let (row, start) = (0..area.height)
+                .find_map(|y| {
+                    let text: String = (0..area.width).map(|x| buffer[(x, y)].symbol()).collect();
+                    text.find(&expected)
+                        .map(|byte_offset| (y, text[..byte_offset].chars().count() as u16))
+                })
+                .expect("complete evidence must remain visible");
+            for (offset, symbol) in expected.chars().enumerate() {
+                let cell = &buffer[(start + offset as u16, row)];
+                assert_eq!(cell.symbol(), symbol.to_string());
+                assert_eq!(
+                    cell.fg,
+                    if offset < raw_status.len() {
+                        expected_color
+                    } else {
+                        theme.fg
+                    },
+                    "status {raw_status:?}, cell {offset}"
+                );
+            }
+        }
+    }
 }
