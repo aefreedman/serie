@@ -148,8 +148,12 @@ impl<'a> App<'a> {
             ec,
         };
 
+        let mut warnings = repository.warnings();
         if let Some(warning) = &graph.warning {
-            app.warn_notification(warning.clone());
+            warnings.push(warning.clone());
+        }
+        if !warnings.is_empty() {
+            app.warn_notification(warnings.join(" | "));
         }
 
         if let Some(context) = refresh_view_context {
@@ -503,6 +507,12 @@ impl App<'_> {
         user_command_number: usize,
         terminal: Option<&mut DefaultTerminal>,
     ) {
+        if self.repository.snapshot().is_some() {
+            self.ec.send(AppEvent::NotifyWarn(
+                "External commands are disabled in read-only Plastic mode".into(),
+            ));
+            return;
+        }
         let clear = match extract_user_command_by_number(user_command_number, &self.ctx)
             .map(|c| &c.r#type)
         {
@@ -767,7 +777,22 @@ impl App<'_> {
     }
 
     fn copy_to_clipboard(&self, name: String, value: String) {
-        match copy_to_clipboard(value, &self.ctx.core_config.external.clipboard) {
+        let selector = if name == "Branch selector" || name == "Label selector" {
+            self.repository
+                .snapshot()
+                .and_then(|s| {
+                    s.references.iter().find(|r| {
+                        r.name == value
+                            && (r.kind == crate::plastic::RefKind::Branch)
+                                == (name == "Branch selector")
+                    })
+                })
+                .map(|r| r.selector())
+                .unwrap_or(value.clone())
+        } else {
+            self.repository.copy_selector(&value)
+        };
+        match copy_to_clipboard(selector, &crate::config::ClipboardConfig::Auto) {
             Ok(_) => {
                 let msg = format!("Copied {name} to clipboard successfully");
                 self.ec.send(AppEvent::NotifySuccess(msg));

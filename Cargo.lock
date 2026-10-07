@@ -2065,6 +2065,7 @@ dependencies = [
  "laurier",
  "once_cell",
  "ratatui",
+ "roxmltree",
  "rstest",
  "rustc-hash",
  "semver",

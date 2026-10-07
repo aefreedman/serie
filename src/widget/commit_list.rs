@@ -1062,7 +1062,7 @@ fn refs_spans<'a>(
 
     if let Head::Detached { target } = head {
         if commit_info.commit.commit_hash == *target {
-            spans.push(Span::raw("HEAD").fg(color_theme.list_head_fg).bold());
+            spans.push(Span::raw("LOADED").fg(color_theme.list_head_fg).bold());
             if !ref_spans.is_empty() {
                 spans.push(Span::raw(", ").fg(color_theme.list_ref_paren_fg).bold());
             }

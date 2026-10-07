@@ -200,12 +200,12 @@ impl<'a> DetailView<'a> {
 
     fn copy_commit_short_hash(&self) {
         let selected = &self.commit.commit_hash;
-        self.copy_to_clipboard("Commit SHA (short)".into(), selected.as_short_hash().into());
+        self.copy_to_clipboard("Changeset selector".into(), selected.as_short_hash().into());
     }
 
     fn copy_commit_hash(&self) {
         let selected = &self.commit.commit_hash;
-        self.copy_to_clipboard("Commit SHA".into(), selected.as_str().into());
+        self.copy_to_clipboard("Changeset selector".into(), selected.as_str().into());
     }
 
     fn copy_to_clipboard(&self, name: String, value: String) {

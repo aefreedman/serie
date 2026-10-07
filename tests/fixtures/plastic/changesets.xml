@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<PLASTICQUERY>
+  <CHANGESET>
+    <ID>622</ID>
+    <CHANGESETID>41</CHANGESETID>
+    <COMMENT>Owned typed shelf base 9b294b30b8</COMMENT>
+    <DATE>2026-10-05T10:29:41-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/shelf-typed-9b294b30b8</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>16a26a77-4741-499e-8ae8-435c5f1dc74b</GUID>
+    <ROOTREV>718</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>617</ID>
+    <CHANGESETID>40</CHANGESETID>
+    <COMMENT>Owned tracked shelf base 1318300805</COMMENT>
+    <DATE>2026-10-05T09:38:23-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/shelf-tracked-source-1318300805</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>5459b2d2-72ef-4066-86ce-289ae94f9d54</GUID>
+    <ROOTREV>713</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>615</ID>
+    <CHANGESETID>39</CHANGESETID>
+    <COMMENT>Owned tracked shelf base f0564d79c2</COMMENT>
+    <DATE>2026-10-05T09:35:31-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/shelf-tracked-source-f0564d79c2</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>c40fc2d0-5a15-4374-b031-429eecf358fa</GUID>
+    <ROOTREV>710</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>613</ID>
+    <CHANGESETID>38</CHANGESETID>
+    <COMMENT>Owned patch source 3664480d9e</COMMENT>
+    <DATE>2026-10-05T09:29:16-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/patch-source-3664480d9e</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>d3104904-74b7-40c8-bcae-d8572200254e</GUID>
+    <ROOTREV>707</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>606</ID>
+    <CHANGESETID>37</CHANGESETID>
+    <COMMENT>Owned copied closeout ad60568b05</COMMENT>
+    <DATE>2026-10-05T08:31:23-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-ad60568b05</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>53c341c5-5a92-45ab-8c3d-ca465869ba3d</GUID>
+    <ROOTREV>705</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>605</ID>
+    <CHANGESETID>36</CHANGESETID>
+    <COMMENT>Owned copied source ad60568b05</COMMENT>
+    <DATE>2026-10-05T08:31:07-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-ad60568b05/owned-source-ad60568b05</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>c6b53efe-2f90-4fd8-b063-70555d86d94d</GUID>
+    <ROOTREV>703</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>601</ID>
+    <CHANGESETID>35</CHANGESETID>
+    <COMMENT>Owned copied closeout fc33007f43</COMMENT>
+    <DATE>2026-10-05T08:30:52-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-fc33007f43</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>6aea9b0d-f0ff-46b9-af96-aacdcadff017</GUID>
+    <ROOTREV>701</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>600</ID>
+    <CHANGESETID>34</CHANGESETID>
+    <COMMENT>Owned copied source fc33007f43</COMMENT>
+    <DATE>2026-10-05T08:30:37-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-fc33007f43/owned-source-fc33007f43</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>eecb96ee-75c2-4a5b-9aa8-104363e0c5ab</GUID>
+    <ROOTREV>699</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>596</ID>
+    <CHANGESETID>33</CHANGESETID>
+    <COMMENT>Owned copied closeout 4952135cdb</COMMENT>
+    <DATE>2026-10-04T18:29:46-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-4952135cdb</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>ed141550-9530-45ec-baf4-6ffa27997b2b</GUID>
+    <ROOTREV>697</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>595</ID>
+    <CHANGESETID>32</CHANGESETID>
+    <COMMENT>Owned copied source 4952135cdb</COMMENT>
+    <DATE>2026-10-04T18:29:32-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-4952135cdb/owned-source-4952135cdb</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>6bea0067-9a32-4505-9a1b-2dcff3a559f0</GUID>
+    <ROOTREV>695</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>592</ID>
+    <CHANGESETID>31</CHANGESETID>
+    <COMMENT>Owned copied source 3141ee6750</COMMENT>
+    <DATE>2026-10-04T18:26:56-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-3141ee6750/owned-source-3141ee6750</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>59972382-3796-483b-a206-1ade7fe64301</GUID>
+    <ROOTREV>692</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>588</ID>
+    <CHANGESETID>30</CHANGESETID>
+    <COMMENT>Owned copied closeout 55d5ed33c9</COMMENT>
+    <DATE>2026-10-04T18:26:41-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-55d5ed33c9</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>5527ffbe-afeb-428e-b5ef-833d2392b74f</GUID>
+    <ROOTREV>690</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>587</ID>
+    <CHANGESETID>29</CHANGESETID>
+    <COMMENT>Owned copied source 55d5ed33c9</COMMENT>
+    <DATE>2026-10-04T18:26:26-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/copied-target-55d5ed33c9/owned-source-55d5ed33c9</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>83c4d622-c13f-48b6-ab5a-2d3277784da7</GUID>
+    <ROOTREV>688</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>576</ID>
+    <CHANGESETID>28</CHANGESETID>
+    <COMMENT>Owned unattended merge source probe b9cac1512e</COMMENT>
+    <DATE>2026-10-04T09:15:04-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/unattended-target-b9cac1512e</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>89a88868-ff5f-4bbe-9495-cb1485030331</GUID>
+    <ROOTREV>683</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>575</ID>
+    <CHANGESETID>27</CHANGESETID>
+    <COMMENT>Owned unattended source fixture b9cac1512e</COMMENT>
+    <DATE>2026-10-04T09:09:33-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/unattended-source-b9cac1512e</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>598c6fc2-101f-47a3-9f76-a7ff9eac52d6</GUID>
+    <ROOTREV>681</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>568</ID>
+    <CHANGESETID>26</CHANGESETID>
+    <COMMENT>Owned registered receipt checkin café é 日本語 😀 1483294c70</COMMENT>
+    <DATE>2026-10-03T15:08:36-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/receipt-café-é-日本-😀-1483294c70</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>e24e7806-5b38-4cc4-be12-5bf138e6ab5a</GUID>
+    <ROOTREV>674</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>566</ID>
+    <CHANGESETID>25</CHANGESETID>
+    <COMMENT>Moved checkin source résumé 日本語 😀</COMMENT>
+    <DATE>2026-10-03T11:21:21-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/parallel-café-é-日本-😀-ec381573</BRANCH>
+    <PARENT>24</PARENT>
+    <GUID>c5f6d7e1-a714-4e21-8fba-a031c026099a</GUID>
+    <ROOTREV>671</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>564</ID>
+    <CHANGESETID>24</CHANGESETID>
+    <COMMENT>Changed/deleted checkin source résumé 日本語 😀</COMMENT>
+    <DATE>2026-10-03T11:21:18-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/parallel-café-é-日本-😀-ec381573</BRANCH>
+    <PARENT>23</PARENT>
+    <GUID>84010c98-5211-429b-9536-cd875124d130</GUID>
+    <ROOTREV>669</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>562</ID>
+    <CHANGESETID>23</CHANGESETID>
+    <COMMENT>Private-inclusive checkin résumé é 日本語 😀</COMMENT>
+    <DATE>2026-10-03T11:12:53-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/parallel-café-é-日本-😀-ec381573</BRANCH>
+    <PARENT>22</PARENT>
+    <GUID>069596bc-ab40-4ec7-b39b-b875d84aed40</GUID>
+    <ROOTREV>664</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>561</ID>
+    <CHANGESETID>22</CHANGESETID>
+    <COMMENT>Parallel checkin source résumé é 日本語 😀</COMMENT>
+    <DATE>2026-10-03T11:08:44-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/parallel-café-é-日本-😀-ec381573</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>8ce34cd2-d682-4f1b-9044-1242c37c8e5c</GUID>
+    <ROOTREV>659</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>558</ID>
+    <CHANGESETID>21</CHANGESETID>
+    <COMMENT>Receipt acceptance résumé 日本語 😀</COMMENT>
+    <DATE>2026-10-03T08:25:59-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/receipt-café-é-日本-😀-d62c149a</BRANCH>
+    <PARENT>13</PARENT>
+    <GUID>fcd60f4c-abc6-455d-ae73-1ac296fac465</GUID>
+    <ROOTREV>658</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>555</ID>
+    <CHANGESETID>20</CHANGESETID>
+    <COMMENT>Machine receipt source checkpoint résumé 日本語 😀</COMMENT>
+    <DATE>2026-10-03T07:22:53-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/xml-receipt-checkpoint-9676016b-😀</BRANCH>
+    <PARENT>19</PARENT>
+    <GUID>1f33485f-f2ab-4dd8-807f-0525a50b08e9</GUID>
+    <ROOTREV>657</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>553</ID>
+    <CHANGESETID>19</CHANGESETID>
+    <COMMENT>XML receipt source checkpoint résumé 日本語 😀</COMMENT>
+    <DATE>2026-10-03T07:15:48-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/xml-receipt-checkpoint-9676016b-😀</BRANCH>
+    <PARENT>13</PARENT>
+    <GUID>d3cfe31d-27b0-4ec8-9492-3733d9b13d12</GUID>
+    <ROOTREV>656</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>544</ID>
+    <CHANGESETID>18</CHANGESETID>
+    <COMMENT>Exclusive synthetic XML fixture baseline</COMMENT>
+    <DATE>2026-10-01T12:04:40-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi_xml_owned_e03b86ff21d149bfa677c9d420085ca1</BRANCH>
+    <PARENT>16</PARENT>
+    <GUID>510df65d-89b0-4fea-94b9-a694547d4192</GUID>
+    <ROOTREV>646</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>438</ID>
+    <CHANGESETID>17</CHANGESETID>
+    <COMMENT>P3 disposable server merge success</COMMENT>
+    <DATE>2026-09-14T12:28:40-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/p3-clean-target</BRANCH>
+    <PARENT>13</PARENT>
+    <GUID>bdec2406-e6fb-4982-94f0-a423aaac4e1d</GUID>
+    <ROOTREV>540</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>437</ID>
+    <CHANGESETID>16</CHANGESETID>
+    <COMMENT>P3 disposable conflict target change</COMMENT>
+    <DATE>2026-09-14T12:28:15-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/p3-conflict-target</BRANCH>
+    <PARENT>13</PARENT>
+    <GUID>f684a652-5870-43d1-b524-7374a3e1e9b7</GUID>
+    <ROOTREV>539</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>436</ID>
+    <CHANGESETID>15</CHANGESETID>
+    <COMMENT>P3 disposable conflict source change</COMMENT>
+    <DATE>2026-09-14T12:28:13-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/p3-conflict-source</BRANCH>
+    <PARENT>13</PARENT>
+    <GUID>42360c9b-94da-434a-a5ba-e893a4f98b71</GUID>
+    <ROOTREV>537</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>433</ID>
+    <CHANGESETID>14</CHANGESETID>
+    <COMMENT>P3 disposable clean source change</COMMENT>
+    <DATE>2026-09-14T12:28:08-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/p3-clean-source</BRANCH>
+    <PARENT>13</PARENT>
+    <GUID>d18a9e8c-1ed1-4ccf-8e16-36ba75aea3c3</GUID>
+    <ROOTREV>535</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>430</ID>
+    <CHANGESETID>13</CHANGESETID>
+    <COMMENT>P3 disposable base fixture</COMMENT>
+    <DATE>2026-09-14T12:28:04-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base</BRANCH>
+    <PARENT>2</PARENT>
+    <GUID>65c6e619-fa4b-49cb-bdc4-3e1e7225d3ea</GUID>
+    <ROOTREV>531</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>250</ID>
+    <CHANGESETID>12</CHANGESETID>
+    <COMMENT>pi-plastic macOS validation changed fixture matrix</COMMENT>
+    <DATE>2026-08-09T08:35:37-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi-plastic-macos-validation-2026-08-08</BRANCH>
+    <PARENT>11</PARENT>
+    <GUID>ae053758-ea62-48b5-80e8-8b3c1a9b3dd6</GUID>
+    <ROOTREV>424</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>247</ID>
+    <CHANGESETID>11</CHANGESETID>
+    <COMMENT>pi-plastic macOS validation historical revision</COMMENT>
+    <DATE>2026-08-09T08:31:21-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi-plastic-macos-validation-2026-08-08</BRANCH>
+    <PARENT>10</PARENT>
+    <GUID>5a365722-fa22-46ad-893f-c36d95f6aa22</GUID>
+    <ROOTREV>413</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>246</ID>
+    <CHANGESETID>10</CHANGESETID>
+    <COMMENT>pi-plastic macOS validation fixture contents</COMMENT>
+    <DATE>2026-08-09T08:30:42-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi-plastic-macos-validation-2026-08-08</BRANCH>
+    <PARENT>9</PARENT>
+    <GUID>ea8f58e1-d542-44d5-bb9c-ace4c39433d2</GUID>
+    <ROOTREV>394</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>245</ID>
+    <CHANGESETID>9</CHANGESETID>
+    <COMMENT>pi-plastic macOS validation fixture baseline</COMMENT>
+    <DATE>2026-08-09T08:30:22-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi-plastic-macos-validation-2026-08-08</BRANCH>
+    <PARENT>2</PARENT>
+    <GUID>ded3e4fb-3600-48e1-b551-14359d4cb9c4</GUID>
+    <ROOTREV>379</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>243</ID>
+    <CHANGESETID>8</CHANGESETID>
+    <COMMENT>test: add moved-item patch fixture</COMMENT>
+    <DATE>2026-08-08T14:13:48-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi-plastic-edge-20260801</BRANCH>
+    <PARENT>7</PARENT>
+    <GUID>87000597-8146-4e65-8a04-5dce0143b986</GUID>
+    <ROOTREV>377</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>241</ID>
+    <CHANGESETID>7</CHANGESETID>
+    <COMMENT>test: exercise pi-plastic diff edge fixtures</COMMENT>
+    <DATE>2026-08-08T12:57:11-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi-plastic-edge-20260801</BRANCH>
+    <PARENT>6</PARENT>
+    <GUID>b6eee1a0-71e1-4991-8da8-c3d96f39ab8e</GUID>
+    <ROOTREV>373</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>239</ID>
+    <CHANGESETID>6</CHANGESETID>
+    <COMMENT>test: add pi-plastic diff edge baseline fixtures</COMMENT>
+    <DATE>2026-08-08T12:55:43-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi-plastic-edge-20260801</BRANCH>
+    <PARENT>2</PARENT>
+    <GUID>30881556-284f-458f-9735-88edb226dea9</GUID>
+    <ROOTREV>349</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>128</ID>
+    <CHANGESETID>5</CHANGESETID>
+    <COMMENT>test: add pi-plastic workspace diff fixtures</COMMENT>
+    <DATE>2026-08-05T08:19:00-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/pi-plastic-workspace-diff</BRANCH>
+    <PARENT>2</PARENT>
+    <GUID>399a7c47-4f89-4456-9ed8-ae43a6a4069f</GUID>
+    <ROOTREV>231</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>15</ID>
+    <CHANGESETID>2</CHANGESETID>
+    <COMMENT>Add synthetic text fixtures</COMMENT>
+    <DATE>2026-07-25T07:30:40-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main</BRANCH>
+    <PARENT>1</PARENT>
+    <GUID>e85ce79a-048b-44be-9aa2-aa5e331ea6e1</GUID>
+    <ROOTREV>110</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>12</ID>
+    <CHANGESETID>1</CHANGESETID>
+    <COMMENT>Seed synthetic pi-plastic test fixtures</COMMENT>
+    <DATE>2026-07-25T07:30:28-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main</BRANCH>
+    <PARENT>0</PARENT>
+    <GUID>614bd454-5695-48f5-a0a0-308425ede716</GUID>
+    <ROOTREV>103</ROOTREV>
+  </CHANGESET>
+  <CHANGESET>
+    <ID>5</ID>
+    <CHANGESETID>0</CHANGESETID>
+    <COMMENT></COMMENT>
+    <DATE>2026-07-24T09:38:58-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main</BRANCH>
+    <PARENT>-1</PARENT>
+    <GUID>0497ef04-4c81-4090-8458-649885400c84</GUID>
+    <ROOTREV>4</ROOTREV>
+  </CHANGESET>
+</PLASTICQUERY>

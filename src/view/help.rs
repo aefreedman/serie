@@ -110,7 +110,7 @@ impl HelpView<'_> {
             Layout::horizontal([Constraint::Percentage(30), Constraint::Percentage(70)])
                 .areas(area);
 
-        if key_area.width - 4 /* padding */ < self.help_key_line_max_width {
+        if key_area.width.saturating_sub(4) /* padding */ < self.help_key_line_max_width {
             [key_area, value_area] = Layout::horizontal([
                 Constraint::Length(self.help_key_line_max_width + 4),
                 Constraint::Min(0),
@@ -245,7 +245,7 @@ fn build_lines(
         (vec![UserEvent::SelectTop], "Select top of the screen".into()),
         (vec![UserEvent::SelectMiddle], "Select middle of the screen".into()),
         (vec![UserEvent::SelectBottom], "Select bottom of the screen".into()),
-        (vec![UserEvent::Confirm], "Show commit details".into()),
+        (vec![UserEvent::Confirm], "Show changeset details".into()),
         (vec![UserEvent::RefList], "Open refs list".into()),
         (vec![UserEvent::Search], "Start search".into()),
         (vec![UserEvent::Cancel], "Cancel search".into()),
@@ -255,14 +255,14 @@ fn build_lines(
         (vec![UserEvent::IgnoreCaseToggle], "Toggle ignore case".into()),
         (vec![UserEvent::FuzzyToggle], "Toggle fuzzy match".into()),
         (vec![UserEvent::Refresh], "Refresh".into()),
-        (vec![UserEvent::ShortCopy], "Copy commit short hash".into()),
-        (vec![UserEvent::FullCopy], "Copy commit hash".into()),
+        (vec![UserEvent::ShortCopy], "Copy changeset selector".into()),
+        (vec![UserEvent::FullCopy], "Copy changeset selector".into()),
     ];
     list_helps.extend(user_command_help_items.clone());
-    let (list_key_lines, list_value_lines) = build_block_lines("Commit List:", list_helps, color_theme, keybind);
+    let (list_key_lines, list_value_lines) = build_block_lines("Changeset List:", list_helps, color_theme, keybind);
     
     let mut detail_helps = vec![
-        (vec![UserEvent::Cancel, UserEvent::Close, UserEvent::Confirm], "Close commit details".into()),
+        (vec![UserEvent::Cancel, UserEvent::Close, UserEvent::Confirm], "Close changeset details".into()),
         (vec![UserEvent::NavigateDown], "Scroll down".into()),
         (vec![UserEvent::NavigateUp], "Scroll up".into()),
         (vec![UserEvent::PageDown], "Scroll page down".into()),
@@ -271,15 +271,15 @@ fn build_lines(
         (vec![UserEvent::HalfPageUp], "Scroll half page up".into()),
         (vec![UserEvent::GoToTop], "Go to top".into()),
         (vec![UserEvent::GoToBottom], "Go to bottom".into()),
-        (vec![UserEvent::SelectDown], "Select older commit".into()),
-        (vec![UserEvent::SelectUp], "Select newer commit".into()),
-        (vec![UserEvent::GoToParent], "Select parent commit".into()),
+        (vec![UserEvent::SelectDown], "Select older changeset".into()),
+        (vec![UserEvent::SelectUp], "Select newer changeset".into()),
+        (vec![UserEvent::GoToParent], "Select parent changeset".into()),
         (vec![UserEvent::Refresh], "Refresh".into()),
-        (vec![UserEvent::ShortCopy], "Copy commit short hash".into()),
-        (vec![UserEvent::FullCopy], "Copy commit hash".into()),
+        (vec![UserEvent::ShortCopy], "Copy changeset selector".into()),
+        (vec![UserEvent::FullCopy], "Copy changeset selector".into()),
     ];
     detail_helps.extend(user_command_help_items.clone());
-    let (detail_key_lines, detail_value_lines) = build_block_lines("Commit Detail:", detail_helps, color_theme, keybind);
+    let (detail_key_lines, detail_value_lines) = build_block_lines("Changeset Detail:", detail_helps, color_theme, keybind);
 
     let refs_helps = vec![
         (vec![UserEvent::Cancel, UserEvent::Close, UserEvent::RefList], "Close refs list".into()),
@@ -304,11 +304,11 @@ fn build_lines(
         (vec![UserEvent::HalfPageUp], "Scroll half page up".into()),
         (vec![UserEvent::GoToTop], "Go to top".into()),
         (vec![UserEvent::GoToBottom], "Go to bottom".into()),
-        (vec![UserEvent::SelectDown], "Select older commit".into()),
-        (vec![UserEvent::SelectUp], "Select newer commit".into()),
-        (vec![UserEvent::GoToParent], "Select parent commit".into()),
+        (vec![UserEvent::SelectDown], "Select older changeset".into()),
+        (vec![UserEvent::SelectUp], "Select newer changeset".into()),
+        (vec![UserEvent::GoToParent], "Select parent changeset".into()),
         (vec![UserEvent::Refresh], "Refresh".into()),
-        (vec![UserEvent::Confirm], "Show commit details".into()),
+        (vec![UserEvent::Confirm], "Show changeset details".into()),
     ];
     user_command_helps.extend(user_command_help_items);
     let (user_command_key_lines, user_command_value_lines) = build_block_lines("User Command:", user_command_helps, color_theme, keybind);

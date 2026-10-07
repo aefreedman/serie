@@ -7,6 +7,7 @@ mod external;
 mod git;
 mod graph;
 mod keybind;
+mod plastic;
 mod protocol;
 mod search;
 mod view;
@@ -17,6 +18,10 @@ mod widget;
 mod graph_tests;
 
 #[cfg(test)]
+#[path = "tests/plastic_integration.rs"]
+mod plastic_integration_tests;
+
+#[cfg(test)]
 #[path = "tests/mailmap.rs"]
 mod mailmap_tests;
 
@@ -24,18 +29,30 @@ mod mailmap_tests;
 #[path = "tests/git.rs"]
 mod test_git;
 
-use std::{path::Path, rc::Rc};
+use std::rc::Rc;
 
 use app::{App, Ret};
 use clap::{Parser, ValueEnum};
 use graph::GraphImageManager;
 use serde::Deserialize;
 
-/// Serie - A rich git commit graph in your terminal, like magic 📚
+/// Serie Plastic - A rich Unity Version Control changeset graph in your terminal
 #[derive(Parser)]
 #[command(version)]
 struct Args {
-    /// Maximum number of commits to render
+    /// Plastic workspace used as cwd for all read-only cm queries
+    #[arg(long, default_value = ".")]
+    workspace: std::path::PathBuf,
+
+    /// Print deterministic qualified history, primary edges, integrations and refs; no terminal required
+    #[arg(long)]
+    dump: bool,
+
+    /// Include changed paths for this numeric changeset in --dump
+    #[arg(long, requires = "dump")]
+    detail: Option<String>,
+
+    /// Maximum changesets to load (1..=10000; default 500)
     #[arg(short = 'n', long, value_name = "NUMBER")]
     max_count: Option<usize>,
 
@@ -43,19 +60,15 @@ struct Args {
     #[arg(short, long, value_name = "TYPE")]
     protocol: Option<ImageProtocolType>,
 
-    /// Commit ordering algorithm [default: chrono]
-    #[arg(short, long, value_name = "TYPE")]
-    order: Option<CommitOrderType>,
-
-    /// Commit graph image cell width [default: auto]
+    /// Changeset graph cell width [default: auto]
     #[arg(short, long, value_name = "TYPE")]
     graph_width: Option<GraphWidthType>,
 
-    /// Commit graph image edge style [default: rounded]
+    /// Changeset graph edge style [default: rounded]
     #[arg(short = 's', long, value_name = "TYPE")]
     graph_style: Option<GraphStyle>,
 
-    /// Initial selection of commit [default: latest]
+    /// Initial selection of changeset [default: latest]
     #[arg(short, long, value_name = "TYPE")]
     initial_selection: Option<InitialSelection>,
 
@@ -68,6 +81,7 @@ struct Args {
 #[serde(rename_all = "kebab-case")]
 enum ImageProtocolType {
     Auto,
+    Text,
     Iterm,
     Kitty,
     KittyUnicode,
@@ -76,6 +90,7 @@ enum ImageProtocolType {
 impl From<Option<ImageProtocolType>> for protocol::ImageProtocol {
     fn from(protocol: Option<ImageProtocolType>) -> Self {
         match protocol {
+            Some(ImageProtocolType::Text) => protocol::ImageProtocol::Text,
             Some(ImageProtocolType::Auto) => protocol::auto_detect(),
             Some(ImageProtocolType::Iterm) => protocol::ImageProtocol::Iterm2,
             Some(ImageProtocolType::Kitty) => protocol::ImageProtocol::Kitty,
@@ -150,12 +165,18 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let (core_config, ui_config, graph_config, color_theme, keybind_patch) = config::load()?;
+    if args.dump {
+        let repository = git::Repository::load_plastic(&args.workspace, args.max_count)?;
+        return dump_repository(&repository, args.detail.as_deref());
+    }
+    let (mut core_config, ui_config, graph_config, color_theme, keybind_patch) = config::load()?;
+    core_config.user_command.commands.clear();
+    core_config.external.clipboard = config::ClipboardConfig::Auto;
     let keybind = keybind::KeyBind::new(keybind_patch);
 
     let max_count = args.max_count;
     let image_protocol = args.protocol.or(core_config.option.protocol).into();
-    let order = args.order.or(core_config.option.order).into();
+    // Plastic uses producer changeset order; no Git ordering or mailmap queries.
     let graph_width = args.graph_width.or(core_config.option.graph_width);
     let graph_style = args.graph_style.or(core_config.option.graph_style).into();
     let graph_image_width_mode = graph_config.row_image_width;
@@ -163,7 +184,6 @@ fn main() -> Result<()> {
         .initial_selection
         .or(core_config.option.initial_selection)
         .into();
-    let mailmap = core_config.git.mailmap;
     let primary_branch = args.primary_branch.filter(|s| !s.is_empty());
 
     let graph_color_set = color::GraphColorSet::new(&graph_config.color);
@@ -180,50 +200,185 @@ fn main() -> Result<()> {
     let mut refresh_view_context = None;
     let mut terminal = None;
 
-    let ret = loop {
-        let repository = git::Repository::load(Path::new("."), order, max_count, mailmap)?;
+    let ret = (|| -> Result<()> {
+        let ret = loop {
+            let repository = git::Repository::load_plastic(&args.workspace, max_count)?;
 
-        let graph = graph::calc_graph(&repository, primary_branch.as_deref());
+            if repository.all_commits().is_empty() {
+                break Err(std::io::Error::other(
+                    "no changesets in the bounded history",
+                ));
+            }
+            let graph = graph::calc_graph(&repository, primary_branch.as_deref());
 
-        let cell_width_type = check::decide_cell_width_type(&graph, graph_width)?;
+            let cell_width_type = check::decide_cell_width_type(&graph, graph_width)?;
 
-        let graph_image_manager = GraphImageManager::new(
-            &graph,
-            &graph_color_set,
-            cell_width_type,
-            graph_style,
-            graph_image_width_mode,
-            image_protocol,
-        );
+            let graph_image_manager = GraphImageManager::new(
+                &graph,
+                &graph_color_set,
+                cell_width_type,
+                graph_style,
+                graph_image_width_mode,
+                image_protocol,
+            );
 
-        if terminal.is_none() {
-            terminal = Some(ratatui::init());
+            if terminal.is_none() {
+                terminal = Some(ratatui::init());
+            }
+
+            let mut app = App::new(
+                &repository,
+                graph_image_manager,
+                &graph_color_set,
+                initial_selection,
+                ctx.clone(),
+                &ec,
+                refresh_view_context,
+            );
+
+            match app.run(terminal.as_mut().unwrap()) {
+                Ok(Ret::Quit) => {
+                    break Ok(());
+                }
+                Ok(Ret::Refresh(request)) => {
+                    refresh_view_context = Some(request.context);
+                    continue;
+                }
+                Err(e) => {
+                    break Err(e);
+                }
+            }
+        };
+
+        ret.map_err(Into::into)
+    })();
+    if terminal.is_some() {
+        ratatui::restore();
+    }
+    ret
+}
+
+fn dump_repository(repository: &git::Repository, detail_id: Option<&str>) -> Result<()> {
+    use std::io::{self, Write};
+    let snapshot = repository.snapshot().expect("Plastic snapshot");
+    let graph = graph::calc_graph(repository, None);
+    let mut out = io::BufWriter::new(io::stdout().lock());
+    writeln!(
+        out,
+        "Serie Plastic read-only; primary + ordinary merge graph; typed integrations listed separately"
+    )?;
+    writeln!(
+        out,
+        "workspace {} config {:?} {:?}",
+        snapshot.workspace.loaded.selector(),
+        snapshot.workspace.config_type,
+        snapshot.workspace.config_name
+    )?;
+    writeln!(out, "loaded {}", snapshot.loaded_changeset.selector())?;
+    writeln!(out, "counts changesets={} integrations={} references={}; truncated history={} integrations={} references={}", snapshot.changesets.len(), snapshot.integrations.len(), snapshot.references.len(), snapshot.history_truncated, snapshot.integrations_truncated, snapshot.references_truncated)?;
+    for warning in repository.warnings() {
+        writeln!(out, "WARNING {warning}")?;
+    }
+    for cs in &snapshot.changesets {
+        let hash = git::CommitHash::from(cs.key.id.as_str());
+        let (x, y) = graph.commit_pos_map[&hash];
+        writeln!(
+            out,
+            "{} {} lane={} row={} branch={:?} owner={:?} date={} object={} guid={} comment={:?}",
+            if cs.key == snapshot.loaded_changeset {
+                '*'
+            } else {
+                'o'
+            },
+            cs.key.selector(),
+            x,
+            y,
+            cs.branch,
+            cs.owner,
+            cs.date,
+            cs.object_id,
+            cs.guid,
+            cs.comment
+        )?;
+        if let Some(parent) = &cs.primary_parent {
+            writeln!(
+                out,
+                "  primary {} -> {}{}",
+                cs.key.selector(),
+                parent.selector(),
+                if snapshot.changesets.iter().any(|c| c.key == *parent) {
+                    ""
+                } else {
+                    " [outside window]"
+                }
+            )?;
         }
-
-        let mut app = App::new(
-            &repository,
-            graph_image_manager,
-            &graph_color_set,
-            initial_selection,
-            ctx.clone(),
-            &ec,
-            refresh_view_context,
-        );
-
-        match app.run(terminal.as_mut().unwrap()) {
-            Ok(Ret::Quit) => {
-                break Ok(());
-            }
-            Ok(Ret::Refresh(request)) => {
-                refresh_view_context = Some(request.context);
-                continue;
-            }
-            Err(e) => {
-                break Err(e);
-            }
+    }
+    let mut integrations: Vec<_> = snapshot.integrations.iter().collect();
+    integrations.sort_by_key(|i| {
+        (
+            i.destination.selector(),
+            i.source.selector(),
+            i.raw_type.clone(),
+            i.object_id.clone(),
+        )
+    });
+    for i in integrations {
+        if i.kind == plastic::IntegrationKind::Merge
+            && snapshot.changesets.iter().any(|c| c.key == i.source)
+            && snapshot.changesets.iter().any(|c| c.key == i.destination)
+        {
+            writeln!(
+                out,
+                "  layout-merge {} -> {}",
+                i.destination.selector(),
+                i.source.selector()
+            )?;
         }
-    };
-
-    ratatui::restore();
-    ret.map_err(Into::into)
+        writeln!(out, "integration type={:?} {} -> {} base={} object={} owner={:?} date={:?} branches={:?}->{:?}", i.raw_type, i.source.selector(), i.destination.selector(), i.base.as_ref().map(|b| b.selector()).unwrap_or_else(|| "none".into()), i.object_id, i.owner, i.date, i.source_branch, i.destination_branch)?;
+    }
+    let mut refs: Vec<_> = snapshot.references.iter().collect();
+    refs.sort_by_key(|r| r.selector());
+    for r in refs {
+        writeln!(
+            out,
+            "reference {} annotation={} owner={:?} date={:?} comment={:?}",
+            r.selector(),
+            r.target
+                .as_ref()
+                .map(|t| t.selector())
+                .unwrap_or_else(|| "unsupported/missing".into()),
+            r.owner,
+            r.date,
+            r.comment
+        )?;
+    }
+    let mut missing: Vec<_> = snapshot.missing_endpoints.iter().collect();
+    missing.sort_by_key(|e| e.selector());
+    for endpoint in missing {
+        writeln!(out, "missing {}", endpoint.selector())?;
+    }
+    if let Some(id) = detail_id {
+        let id = plastic::ChangesetId::new(id)?;
+        let cs = snapshot
+            .changesets
+            .iter()
+            .find(|c| c.key.id == id)
+            .ok_or("detail changeset is outside loaded window")?;
+        let detail = repository.plastic_detail(cs.key.id.as_str())?;
+        for p in detail.paths {
+            writeln!(
+                out,
+                "path {} status={:?} source={:?} destination={:?} revision={} parent_revision={}",
+                detail.key.selector(),
+                p.change_type,
+                p.source_path,
+                p.destination_path,
+                p.revision_id,
+                p.parent_revision_id
+            )?;
+        }
+    }
+    out.flush()?;
+    Ok(())
 }

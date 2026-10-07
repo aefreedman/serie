@@ -150,9 +150,9 @@ impl<'a> RefsView<'a> {
 
     fn copy_ref_name(&self) {
         if let Some(selected) = self.ref_list_state.selected_branch() {
-            self.copy_to_clipboard("Branch Name".into(), selected);
+            self.copy_to_clipboard("Branch selector".into(), selected);
         } else if let Some(selected) = self.ref_list_state.selected_tag() {
-            self.copy_to_clipboard("Tag Name".into(), selected);
+            self.copy_to_clipboard("Label selector".into(), selected);
         }
     }
 

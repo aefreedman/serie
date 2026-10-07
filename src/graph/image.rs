@@ -102,6 +102,38 @@ impl<'a> GraphImageManager<'a> {
         if self.prepared_image_map.contains_key(commit_hash) {
             return;
         }
+        if matches!(self.image_protocol, ImageProtocol::Text) {
+            let (x, y) = self.graph.commit_pos_map[commit_hash];
+            let row = text_graph_row(
+                &self.graph.edges[y],
+                x,
+                self.graph.max_pos_x + 1,
+                self.cell_width_type,
+            );
+            let scale = match self.cell_width_type {
+                CellWidthType::Single => 1,
+                CellWidthType::Double => 2,
+            };
+            let style_for = |lane| {
+                let rgba = self.image_params.edge_color(lane);
+                ratatui::style::Style::default()
+                    .fg(ratatui::style::Color::Rgb(rgba[0], rgba[1], rgba[2]))
+            };
+            let mut styles = vec![ratatui::style::Style::default(); row.len()];
+            for edge in &self.graph.edges[y] {
+                let offset = edge.pos_x * scale;
+                styles[offset] = style_for(edge.associated_line_pos_x);
+                if scale == 2 && text_directions(edge.edge_type) & RIGHT != 0 {
+                    styles[offset + 1] = style_for(edge.associated_line_pos_x);
+                }
+            }
+            styles[x * scale] = style_for(x);
+            self.prepared_image_map.insert(
+                commit_hash.clone(),
+                PreparedImage::styled_text(row.into_iter().zip(styles)),
+            );
+            return;
+        }
         let image_id = graph_image_id(self.session_nonce, commit_hash);
         let graph_row_image = build_single_graph_row_image(
             self.graph,
@@ -119,6 +151,115 @@ impl<'a> GraphImageManager<'a> {
         self.prepared_image_map.insert(commit_hash.clone(), image);
         self.image_ids.insert(image_id);
     }
+}
+
+// Direction masks compose overlapping segments without losing earlier connections.
+const UP: u8 = 1;
+const DOWN: u8 = 2;
+const LEFT: u8 = 4;
+const RIGHT: u8 = 8;
+
+fn text_directions(edge_type: EdgeType) -> u8 {
+    match edge_type {
+        EdgeType::Vertical => UP | DOWN,
+        EdgeType::Horizontal => LEFT | RIGHT,
+        EdgeType::Up => UP,
+        EdgeType::Down => DOWN,
+        EdgeType::Left => LEFT,
+        EdgeType::Right => RIGHT,
+        EdgeType::RightTop => LEFT | DOWN,
+        EdgeType::RightBottom => LEFT | UP,
+        EdgeType::LeftTop => RIGHT | DOWN,
+        EdgeType::LeftBottom => RIGHT | UP,
+    }
+}
+
+fn text_lane_glyph(edges: &[&Edge]) -> char {
+    let directions = edges
+        .iter()
+        .fold(0, |mask, edge| mask | text_directions(edge.edge_type));
+    if directions == UP | DOWN | LEFT | RIGHT {
+        // Shared arms connect physically, even for forks with different child lanes.
+        // Otherwise a shared associated line is our only evidence of a junction.
+        // ╪ denotes an unrelated overpass, NOT a connected ┼. Graph retains lane
+        // association, not endpoint identities; do not invent stronger evidence.
+        let mut connected = vec![false; edges.len()];
+        connected[0] = true;
+        loop {
+            let mut changed = false;
+            for i in 0..edges.len() {
+                if connected[i] {
+                    continue;
+                }
+                if (0..edges.len()).any(|j| {
+                    connected[j]
+                        && (edges[i].associated_line_pos_x == edges[j].associated_line_pos_x
+                            || text_directions(edges[i].edge_type)
+                                & text_directions(edges[j].edge_type)
+                                != 0)
+                }) {
+                    connected[i] = true;
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        if connected.iter().any(|connected| !connected) {
+            return '╪';
+        }
+    }
+    match directions {
+        0 => ' ',
+        1 => '╵',
+        2 => '╷',
+        3 => '│',
+        4 => '╴',
+        5 => '╯',
+        6 => '╮',
+        7 => '┤',
+        8 => '╶',
+        9 => '╰',
+        10 => '╭',
+        11 => '├',
+        12 => '─',
+        13 => '┴',
+        14 => '┬',
+        15 => '┼',
+        _ => unreachable!(),
+    }
+}
+
+fn text_graph_row(
+    edges: &[Edge],
+    node_x: usize,
+    lane_count: usize,
+    cell_width_type: CellWidthType,
+) -> Vec<char> {
+    let scale = match cell_width_type {
+        CellWidthType::Single => 1,
+        CellWidthType::Double => 2,
+    };
+    let mut lanes = vec![Vec::new(); lane_count];
+    for edge in edges {
+        lanes[edge.pos_x].push(edge);
+    }
+    let mut row = vec![' '; lane_count * scale];
+    for (x, lane) in lanes.iter().enumerate() {
+        row[x * scale] = text_lane_glyph(lane);
+        if scale == 2
+            && lane
+                .iter()
+                .any(|edge| text_directions(edge.edge_type) & RIGHT != 0)
+        {
+            row[x * scale + 1] = '─';
+        }
+    }
+    // Keep changesets distinct from edges. A single text cell cannot also draw
+    // connection arms around the dot; intervening rows retain their edges.
+    row[node_x * scale] = '●';
+    row
 }
 
 pub struct GraphRowImage {
@@ -939,6 +1080,106 @@ mod tests {
 
     use super::*;
     use EdgeType::*;
+
+    #[test]
+    fn text_node_is_a_distinct_dot_for_every_direction_mask() {
+        for width in [CellWidthType::Single, CellWidthType::Double] {
+            let scale = if width == CellWidthType::Single { 1 } else { 2 };
+            for mask in 0..16 {
+                let edges: Vec<_> = [(UP, Up), (DOWN, Down), (LEFT, Left), (RIGHT, Right)]
+                    .into_iter()
+                    .filter(|(direction, _)| mask & direction != 0)
+                    .map(|(_, kind)| Edge::new(kind, 1, 1))
+                    .collect();
+                let row = text_graph_row(&edges, 1, 3, width);
+                assert_eq!(row[scale], '●');
+                assert_eq!(row.iter().filter(|&&glyph| glyph == '●').count(), 1);
+                if scale == 2 {
+                    assert_eq!(row[scale + 1], if mask & RIGHT != 0 { '─' } else { ' ' });
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn text_crossings_are_distinct_from_connected_junctions_in_both_widths() {
+        for (width, crossing, junction) in [
+            (CellWidthType::Single, "●╪╮", "●┼╮"),
+            (CellWidthType::Double, "●─╪─╮ ", "●─┼─╮ "),
+        ] {
+            // A merge's horizontal route passes over an unrelated vertical lane.
+            let mut edges = vec![
+                Edge::new(Right, 0, 2),
+                Edge::new(Horizontal, 1, 2),
+                Edge::new(RightTop, 2, 2),
+                Edge::new(Vertical, 1, 1),
+            ];
+            assert_eq!(
+                text_graph_row(&edges, 0, 3, width)
+                    .iter()
+                    .collect::<String>(),
+                crossing
+            );
+            edges.reverse();
+            assert_eq!(
+                text_graph_row(&edges, 0, 3, width)
+                    .iter()
+                    .collect::<String>(),
+                crossing
+            );
+            // Shared lane association supplies junction evidence.
+            edges[0].associated_line_pos_x = 2;
+            assert_eq!(
+                text_graph_row(&edges, 0, 3, width)
+                    .iter()
+                    .collect::<String>(),
+                junction
+            );
+        }
+    }
+
+    #[test]
+    fn text_composes_corners_and_continuations_in_both_widths() {
+        for (width, top, bottom, side) in [
+            (CellWidthType::Single, "●┬╮", "●┴╯", "●├╮"),
+            (CellWidthType::Double, "●─┬─╮ ", "●─┴─╯ ", "● ├─╮ "),
+        ] {
+            for (segments, expected) in [
+                (
+                    vec![(Right, 0), (RightTop, 1), (Horizontal, 1), (RightTop, 2)],
+                    top,
+                ),
+                (
+                    vec![
+                        (Right, 0),
+                        (RightBottom, 1),
+                        (Horizontal, 1),
+                        (RightBottom, 2),
+                    ],
+                    bottom,
+                ),
+                (vec![(Vertical, 1), (LeftTop, 1), (RightTop, 2)], side),
+            ] {
+                let mut edges: Vec<_> = segments
+                    .into_iter()
+                    .map(|(kind, x)| Edge::new(kind, x, x))
+                    .collect();
+                assert_eq!(
+                    text_graph_row(&edges, 0, 3, width)
+                        .iter()
+                        .collect::<String>(),
+                    expected
+                );
+                edges.reverse();
+                assert_eq!(
+                    text_graph_row(&edges, 0, 3, width)
+                        .iter()
+                        .collect::<String>(),
+                    expected
+                );
+            }
+        }
+    }
 
     const OUTPUT_DIR: &str = "./out/ut/graph/image";
 

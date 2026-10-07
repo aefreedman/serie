@@ -1,7 +1,10 @@
 use std::{
     hash::Hash,
-    io::{BufRead, BufReader},
     path::{Path, PathBuf},
+};
+#[cfg(test)]
+use std::{
+    io::{BufRead, BufReader},
     process::{Command, Stdio},
 };
 
@@ -15,7 +18,11 @@ pub struct CommitHash(String);
 
 impl CommitHash {
     pub fn as_short_hash(&self) -> &str {
-        &self.0[0..7]
+        if self.0.bytes().all(|b| b.is_ascii_digit()) {
+            &self.0
+        } else {
+            self.0.get(..7).unwrap_or(&self.0)
+        }
     }
 
     pub fn as_str(&self) -> &str {
@@ -102,9 +109,10 @@ type CommitsMap = FxHashMap<CommitHash, Vec<CommitHash>>;
 
 type RefMap = FxHashMap<CommitHash, Vec<Ref>>;
 
-#[derive(Debug)]
 pub struct Repository {
+    #[cfg(test)]
     path: PathBuf,
+    plastic: Option<(crate::plastic::Backend, crate::plastic::Snapshot)>,
     commit_map: CommitMap,
 
     parents_map: CommitsMap,
@@ -117,6 +125,7 @@ pub struct Repository {
 }
 
 impl Repository {
+    #[cfg(test)]
     pub fn load(
         path: &Path,
         sort: SortCommit,
@@ -162,8 +171,11 @@ impl Repository {
         head: Head,
         commit_hashes: Vec<CommitHash>,
     ) -> Self {
+        let _ = &path;
         Self {
+            #[cfg(test)]
             path,
+            plastic: None,
             commit_map,
             parents_map,
             children_map,
@@ -171,6 +183,214 @@ impl Repository {
             head,
             commit_hashes,
         }
+    }
+
+    /// Adapt the single qualified Plastic repository to the existing graph model.
+    /// Primary parents stay first; ordinary merges add deduplicated layout edges.
+    /// Typed integrations remain separate evidence; nonordinary links are not ancestry.
+    pub fn load_plastic(path: &Path, max_count: Option<usize>) -> Result<Self> {
+        let mut limits = crate::plastic::Limits::default();
+        if let Some(n) = max_count {
+            limits.changesets = n;
+        }
+        let backend = crate::plastic::Backend::new(path, limits)?;
+        let snapshot = backend.load()?;
+        Self::from_plastic(backend, snapshot)
+    }
+
+    pub fn from_plastic(
+        backend: crate::plastic::Backend,
+        snapshot: crate::plastic::Snapshot,
+    ) -> Result<Self> {
+        let positions: FxHashMap<_, _> = snapshot
+            .changesets
+            .iter()
+            .enumerate()
+            .map(|(index, cs)| (&cs.key, index))
+            .collect();
+        for (index, cs) in snapshot.changesets.iter().enumerate() {
+            if let Some(parent) = &cs.primary_parent {
+                if positions.get(parent).is_some_and(|p| *p <= index) {
+                    return Err("unsupported history ordering/cycle: graph requires loaded primary parents after children".into());
+                }
+            }
+        }
+        let mut commits = Vec::new();
+        for cs in &snapshot.changesets {
+            let date = DateTime::parse_from_rfc3339(&cs.date)?;
+            let (subject, body) = cs.comment.split_once('\n').unwrap_or((&cs.comment, ""));
+            commits.push(Commit {
+                commit_hash: cs.key.id.as_str().into(),
+                author_name: cs.owner.clone(),
+                author_email: String::new(),
+                author_date: date,
+                committer_name: cs.owner.clone(),
+                committer_email: String::new(),
+                committer_date: date,
+                subject: subject.into(),
+                body: format!(
+                    "{}
+
+Selector: {}
+Branch: {}
+Original date: {}
+Object ID: {}
+GUID: {}
+Primary parent: {}",
+                    body,
+                    cs.key.selector(),
+                    cs.branch,
+                    cs.date,
+                    cs.object_id,
+                    cs.guid,
+                    cs.primary_parent
+                        .as_ref()
+                        .map(|p| p.selector())
+                        .unwrap_or_else(|| "root (PARENT=-1)".into())
+                ),
+                parent_commit_hashes: cs
+                    .primary_parent
+                    .iter()
+                    .map(|p| p.id.as_str().into())
+                    .collect(),
+            });
+        }
+        let mut ordinary: Vec<_> = snapshot
+            .integrations
+            .iter()
+            .filter(|i| i.kind == crate::plastic::IntegrationKind::Merge)
+            .collect();
+        ordinary.sort_by_key(|i| {
+            (
+                i.destination.selector(),
+                i.source.selector(),
+                i.object_id.clone(),
+            )
+        });
+        for integration in ordinary {
+            let (Some(source), Some(destination)) = (
+                positions.get(&integration.source),
+                positions.get(&integration.destination),
+            ) else {
+                continue;
+            };
+            if source <= destination {
+                return Err("unsupported ordinary merge ordering/cycle: graph requires source after destination".into());
+            }
+            let source_hash: CommitHash = integration.source.id.as_str().into();
+            let parents = &mut commits[*destination].parent_commit_hashes;
+            if !parents.contains(&source_hash) {
+                parents.push(source_hash);
+            }
+        }
+        let hashes = commits.iter().map(|c| c.commit_hash.clone()).collect();
+        let (parents, children) = build_commits_maps(&commits);
+        let mut refs = RefMap::default();
+        for r in &snapshot.references {
+            if let Some(target) = &r.target {
+                // Never equate an unrelated repository's changeset number.
+                if target.repository != snapshot.loaded_changeset.repository {
+                    continue;
+                }
+                let target: CommitHash = target.id.as_str().into();
+                let annotation = match r.kind {
+                    crate::plastic::RefKind::Branch => Ref::Branch {
+                        name: r.name.clone(),
+                        target: target.clone(),
+                    },
+                    crate::plastic::RefKind::Label => Ref::Tag {
+                        name: r.name.clone(),
+                        target: target.clone(),
+                    },
+                };
+                refs.entry(target).or_default().push(annotation);
+            }
+        }
+        refs.values_mut().for_each(|rs| rs.sort());
+        let head = Head::Detached {
+            target: snapshot.loaded_changeset.id.as_str().into(),
+        };
+        let mut repository = Self::new(
+            PathBuf::new(),
+            to_commit_map(commits),
+            parents,
+            children,
+            refs,
+            head,
+            hashes,
+        );
+        repository.plastic = Some((backend, snapshot));
+        Ok(repository)
+    }
+
+    pub fn snapshot(&self) -> Option<&crate::plastic::Snapshot> {
+        self.plastic.as_ref().map(|(_, snapshot)| snapshot)
+    }
+
+    pub fn warnings(&self) -> Vec<String> {
+        let Some(snapshot) = self.snapshot() else {
+            return Vec::new();
+        };
+        let mut warnings = snapshot.warnings.clone();
+        if !snapshot
+            .changesets
+            .iter()
+            .any(|cs| cs.key == snapshot.loaded_changeset)
+        {
+            warnings.push(format!(
+                "Loaded workspace changeset {} is outside the history window.",
+                snapshot.loaded_changeset.selector()
+            ));
+        }
+        let nonordinary = snapshot
+            .integrations
+            .iter()
+            .filter(|i| i.kind != crate::plastic::IntegrationKind::Merge)
+            .count();
+        if nonordinary > 0 {
+            warnings.push(format!("{nonordinary} nonordinary integration links omitted from drawing (types retained in dump/details)."));
+        }
+        let outside = snapshot
+            .integrations
+            .iter()
+            .filter(|i| {
+                i.kind == crate::plastic::IntegrationKind::Merge
+                    && (!snapshot.changesets.iter().any(|c| c.key == i.source)
+                        || !snapshot.changesets.iter().any(|c| c.key == i.destination))
+            })
+            .count();
+        if outside > 0 {
+            warnings.push(format!("{outside} ordinary merge links have endpoints outside the loaded window; omitted from drawing, retained in dump/details."));
+        }
+        let unsupported = snapshot
+            .references
+            .iter()
+            .filter(|r| {
+                r.target
+                    .as_ref()
+                    .is_none_or(|t| t.repository != snapshot.loaded_changeset.repository)
+            })
+            .count();
+        if unsupported > 0 {
+            warnings.push(format!("{unsupported} references have unsupported/missing targets; retained in dump, not annotated."));
+        }
+        warnings
+    }
+
+    pub fn copy_selector(&self, value: &str) -> String {
+        if let Some(snapshot) = self.snapshot() {
+            if let Some(cs) = snapshot
+                .changesets
+                .iter()
+                .find(|cs| cs.key.id.as_str() == value)
+            {
+                return cs.key.selector();
+            }
+            if let Some(r) = snapshot.references.iter().find(|r| r.name == value) {
+                return r.selector();
+            }
+        }
+        value.to_owned()
     }
 
     pub fn commit(&self, commit_hash: &CommitHash) -> Option<&Commit> {
@@ -213,17 +433,85 @@ impl Repository {
         &self.head
     }
 
+    pub fn plastic_detail(&self, id: &str) -> Result<crate::plastic::Detail> {
+        let (backend, snapshot) = self.plastic.as_ref().ok_or("not a Plastic repository")?;
+        let id = crate::plastic::ChangesetId::new(id)?;
+        let cs = snapshot
+            .changesets
+            .iter()
+            .find(|cs| cs.key.id == id)
+            .ok_or("detail changeset is outside loaded window")?;
+        Ok(backend.detail(&cs.key)?)
+    }
+
     pub fn commit_detail(&self, commit_hash: &CommitHash) -> (Commit, Vec<FileChange>) {
-        let commit = self.commit(commit_hash).unwrap().clone();
+        let mut commit = self.commit(commit_hash).unwrap().clone();
+        if let Some((_, snapshot)) = &self.plastic {
+            let cs = snapshot
+                .changesets
+                .iter()
+                .find(|c| c.key.id.as_str() == commit_hash.as_str())
+                .unwrap();
+            for warning in self.warnings() {
+                commit
+                    .body
+                    .push_str(&format!("{}WARNING: {warning}", char::from(10)));
+            }
+            for link in snapshot
+                .integrations
+                .iter()
+                .filter(|i| i.destination == cs.key || i.source == cs.key)
+            {
+                commit.body.push_str(&format!(
+                    "
+Integration [{}]: {} -> {}; base: {}",
+                    link.raw_type,
+                    link.source.selector(),
+                    link.destination.selector(),
+                    link.base
+                        .as_ref()
+                        .map(|b| b.selector())
+                        .unwrap_or_else(|| "none".into())
+                ));
+            }
+            let changes = match self.plastic_detail(cs.key.id.as_str()) {
+                Ok(detail) => detail
+                    .paths
+                    .into_iter()
+                    .map(|p| FileChange::Plastic {
+                        description: format!(
+                            "{} {} -> {} [rev {}, parent rev {}]",
+                            p.change_type,
+                            p.source_path,
+                            p.destination_path,
+                            p.revision_id,
+                            p.parent_revision_id
+                        ),
+                    })
+                    .collect(),
+                Err(error) => {
+                    commit.body.push_str(&format!(
+                        "
+ERROR loading changed paths: {error}"
+                    ));
+                    Vec::new()
+                }
+            };
+            return (commit, changes);
+        }
+        #[cfg(test)]
         let changes = if commit.parent_commit_hashes.is_empty() {
             get_initial_commit_additions(&self.path, commit_hash)
         } else {
             get_diff_summary(&self.path, commit_hash)
         };
+        #[cfg(not(test))]
+        let changes = Vec::new();
         (commit, changes)
     }
 }
 
+#[cfg(test)]
 fn check_git_repository(path: &Path) -> Result<()> {
     if !is_inside_work_tree(path) && !is_bare_repository(path) {
         let msg = "not a git repository (or any of the parent directories)";
@@ -232,6 +520,7 @@ fn check_git_repository(path: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 fn is_inside_work_tree(path: &Path) -> bool {
     let output = Command::new("git")
         .arg("rev-parse")
@@ -242,6 +531,7 @@ fn is_inside_work_tree(path: &Path) -> bool {
     output.status.success() && output.stdout == b"true\n"
 }
 
+#[cfg(test)]
 fn is_bare_repository(path: &Path) -> bool {
     let output = Command::new("git")
         .arg("rev-parse")
@@ -252,6 +542,7 @@ fn is_bare_repository(path: &Path) -> bool {
     output.status.success() && output.stdout == b"true\n"
 }
 
+#[cfg(test)]
 fn load_all_commits(
     path: &Path,
     sort: SortCommit,
@@ -327,6 +618,7 @@ fn load_all_commits(
     commits
 }
 
+#[cfg(test)]
 fn load_all_stashes(path: &Path, mailmap: bool) -> Vec<Commit> {
     let mut cmd = Command::new("git")
         .arg("stash")
@@ -376,6 +668,7 @@ fn load_all_stashes(path: &Path, mailmap: bool) -> Vec<Commit> {
     commits
 }
 
+#[cfg(test)]
 fn load_commits_format(mailmap: bool) -> String {
     // The uppercase name/email placeholders (`%aN`, `%aE`, `%cN`, `%cE`) resolve
     // identities through the repository's .mailmap, while the lowercase variants
@@ -392,10 +685,12 @@ fn load_commits_format(mailmap: bool) -> String {
     format.join("%x1f") // use Unit Separator as a delimiter
 }
 
+#[cfg(test)]
 fn parse_iso_date(s: &str) -> DateTime<FixedOffset> {
     DateTime::parse_from_rfc3339(s).unwrap()
 }
 
+#[cfg(test)]
 fn parse_parent_commit_hashes(s: &str) -> Vec<CommitHash> {
     if s.is_empty() {
         return Vec::new();
@@ -430,6 +725,7 @@ fn to_commit_map(commits: Vec<Commit>) -> CommitMap {
         .collect()
 }
 
+#[cfg(test)]
 fn merge_stashes_to_commits(commits: Vec<Commit>, stashes: Vec<Commit>) -> Vec<Commit> {
     // Stash commit has multiple parent commits, but the first parent commit is the commit that the stash was created from.
     // If the first parent commit is not found, the stash commit is ignored.
@@ -453,6 +749,7 @@ fn merge_stashes_to_commits(commits: Vec<Commit>, stashes: Vec<Commit>) -> Vec<C
     ret
 }
 
+#[cfg(test)]
 fn load_refs(path: &Path) -> (RefMap, Head) {
     let mut cmd = Command::new("git")
         .arg("show-ref")
@@ -511,6 +808,7 @@ fn load_refs(path: &Path) -> (RefMap, Head) {
     (ref_map, head)
 }
 
+#[cfg(test)]
 fn load_stashes_as_refs(path: &Path) -> RefMap {
     let format = ["%gd", "%H", "%s"].join("%x1f"); // use Unit Separator as a delimiter
     let mut cmd = Command::new("git")
@@ -555,12 +853,14 @@ fn load_stashes_as_refs(path: &Path) -> RefMap {
     ref_map
 }
 
+#[cfg(test)]
 fn merge_ref_maps(m1: &mut RefMap, m2: RefMap) {
     for (k, v) in m2 {
         m1.entry(k).or_default().extend(v);
     }
 }
 
+#[cfg(test)]
 fn parse_branch_refs(hash: &str, refs: &str) -> Option<Ref> {
     if refs.starts_with("refs/heads/") {
         let name = refs.trim_start_matches("refs/heads/");
@@ -579,6 +879,7 @@ fn parse_branch_refs(hash: &str, refs: &str) -> Option<Ref> {
     }
 }
 
+#[cfg(test)]
 fn parse_tag_refs(hash: &str, refs: &str) -> Option<Ref> {
     if refs.starts_with("refs/tags/") {
         let name = refs.trim_start_matches("refs/tags/");
@@ -592,6 +893,7 @@ fn parse_tag_refs(hash: &str, refs: &str) -> Option<Ref> {
     }
 }
 
+#[cfg(test)]
 fn get_current_branch(path: &Path) -> Option<String> {
     let mut cmd = Command::new("git")
         .arg("branch")
@@ -619,12 +921,14 @@ fn get_current_branch(path: &Path) -> Option<String> {
 
 #[derive(Debug)]
 pub enum FileChange {
+    Plastic { description: String },
     Add { path: String },
     Modify { path: String },
     Delete { path: String },
     Move { from: String, to: String },
 }
 
+#[cfg(test)]
 pub fn get_diff_summary(path: &Path, commit_hash: &CommitHash) -> Vec<FileChange> {
     let mut cmd = Command::new("git")
         .arg("diff")
@@ -670,6 +974,7 @@ pub fn get_diff_summary(path: &Path, commit_hash: &CommitHash) -> Vec<FileChange
     changes
 }
 
+#[cfg(test)]
 pub fn get_initial_commit_additions(path: &Path, commit_hash: &CommitHash) -> Vec<FileChange> {
     let mut cmd = Command::new("git")
         .arg("ls-tree")
@@ -696,4 +1001,12 @@ pub fn get_initial_commit_additions(path: &Path, commit_hash: &CommitHash) -> Ve
     cmd.wait().unwrap();
 
     changes
+}
+
+impl std::fmt::Debug for Repository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Repository")
+            .field("commit_hashes", &self.commit_hashes)
+            .finish()
+    }
 }

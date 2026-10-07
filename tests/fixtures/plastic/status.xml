@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<StatusOutput>
+  <WorkspaceStatus>
+    <Status>
+      <RepSpec>
+        <Server>1234567890123@cloud</Server>
+        <Name>Example Repositories/test-repo</Name>
+      </RepSpec>
+      <Changeset>16</Changeset>
+    </Status>
+  </WorkspaceStatus>
+  <WkConfigType>Branch</WkConfigType>
+  <WkConfigName>/main/p3-contract-base/p3-conflict-target@Example Repositories/test-repo@1234567890123@cloud</WkConfigName>
+</StatusOutput>

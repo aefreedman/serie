@@ -17,7 +17,7 @@ const TREE_STASH_ROOT_IDENT: &str = "__stashes__";
 
 const TREE_BRANCH_ROOT_TEXT: &str = "Branches";
 const TREE_REMOTE_ROOT_TEXT: &str = "Remotes";
-const TREE_TAG_ROOT_TEXT: &str = "Tags";
+const TREE_TAG_ROOT_TEXT: &str = "Labels";
 const TREE_STASH_ROOT_TEXT: &str = "Stashes";
 
 #[derive(Debug)]

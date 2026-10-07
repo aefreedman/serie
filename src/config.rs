@@ -155,19 +155,6 @@ pub struct CoreSearchConfig {
 #[derive(Debug, Clone, PartialEq, Eq, SmartDefault, Validate)]
 pub struct CoreUserCommandConfig {
     #[garde(dive)]
-    #[default(FxHashMap::from_iter([("1".into(), UserCommand {
-        name: "git diff".into(),
-        r#type: UserCommandType::Inline,
-        commands: vec![
-            "git".into(),
-            "--no-pager".into(),
-            "diff".into(),
-            "--color=always".into(),
-            "{{first_parent_hash}}".into(),
-            "{{target_hash}}".into(),
-        ],
-        refresh: false,
-    })]))]
     pub commands: FxHashMap<String, UserCommand>,
     #[garde(range(min = 0))]
     #[default = 4]
@@ -460,22 +447,7 @@ mod tests {
                     fuzzy: false,
                 },
                 user_command: CoreUserCommandConfig {
-                    commands: FxHashMap::from_iter([(
-                        "1".into(),
-                        UserCommand {
-                            name: "git diff".into(),
-                            r#type: UserCommandType::Inline,
-                            commands: vec![
-                                "git".into(),
-                                "--no-pager".into(),
-                                "diff".into(),
-                                "--color=always".into(),
-                                "{{first_parent_hash}}".into(),
-                                "{{target_hash}}".into(),
-                            ],
-                            refresh: false,
-                        },
-                    )]),
+                    commands: FxHashMap::default(),
                     tab_width: 4,
                 },
                 external: CoreExternalConfig {
@@ -708,22 +680,7 @@ mod tests {
                     fuzzy: false,
                 },
                 user_command: CoreUserCommandConfig {
-                    commands: FxHashMap::from_iter([(
-                        "1".into(),
-                        UserCommand {
-                            name: "git diff".into(),
-                            r#type: UserCommandType::Inline,
-                            commands: vec![
-                                "git".into(),
-                                "--no-pager".into(),
-                                "diff".into(),
-                                "--color=always".into(),
-                                "{{first_parent_hash}}".into(),
-                                "{{target_hash}}".into(),
-                            ],
-                            refresh: false,
-                        },
-                    )]),
+                    commands: FxHashMap::default(),
                     tab_width: 4,
                 },
                 external: CoreExternalConfig {

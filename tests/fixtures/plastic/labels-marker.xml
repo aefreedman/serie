@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<PLASTICQUERY>
+  <MARKER>
+    <ID>722</ID>
+    <COMMENT>Serie Plastic MARKER schema regression test</COMMENT>
+    <DATE>2026-10-06T12:44:07-04:00</DATE>
+    <OWNER>developer@example.com</OWNER>
+    <NAME>serie-plastic-test-label</NAME>
+    <CHANGESET>16</CHANGESET>
+    <REPOSITORY>Example Repositories/test-repo</REPOSITORY>
+    <REPNAME>Example Repositories/test-repo</REPNAME>
+    <REPSERVER>example-org@unity</REPSERVER>
+    <BRANCH>/main/p3-contract-base/p3-conflict-target</BRANCH>
+    <BRANCHID>435</BRANCHID>
+  </MARKER>
+</PLASTICQUERY>

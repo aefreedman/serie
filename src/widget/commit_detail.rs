@@ -86,7 +86,7 @@ impl StatefulWidget for CommitDetail<'_> {
 
         let (mut label_lines, mut value_lines) = self.contents(area);
 
-        let content_area_height = area.height as usize - 1; // minus the top border
+        let content_area_height = (area.height as usize).saturating_sub(1); // top border
         self.update_state(state, value_lines.len(), content_area_height);
 
         label_lines = label_lines.into_iter().skip(state.offset).collect();
@@ -126,7 +126,7 @@ impl CommitDetail<'_> {
         let mut label_lines: Vec<Line> = Vec::new();
         let mut value_lines: Vec<Line> = Vec::new();
 
-        label_lines.push(Line::from("   Author: ").fg(self.ctx.color_theme.detail_label_fg));
+        label_lines.push(Line::from("    Owner: ").fg(self.ctx.color_theme.detail_label_fg));
         label_lines.push(self.empty_line());
         value_lines.extend(self.author_lines());
 
@@ -136,7 +136,7 @@ impl CommitDetail<'_> {
             value_lines.extend(self.committer_lines());
         }
 
-        label_lines.push(Line::from("      SHA: ").fg(self.ctx.color_theme.detail_label_fg));
+        label_lines.push(Line::from("Changeset: ").fg(self.ctx.color_theme.detail_label_fg));
         value_lines.push(self.sha_line());
 
         if has_parent(self.commit) {
@@ -276,6 +276,7 @@ impl CommitDetail<'_> {
         self.changes
             .iter()
             .map(|c| match c {
+                FileChange::Plastic { description } => Line::raw(description),
                 FileChange::Add { path } => Line::from(vec![
                     "A".fg(self.ctx.color_theme.detail_file_change_add_fg),
                     " ".into(),

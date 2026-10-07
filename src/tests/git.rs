@@ -96,7 +96,12 @@ impl<'a> GitRepository<'a> {
             .env("GIT_COMMITTER_EMAIL", &self.committer_email)
             .env("GIT_COMMITTER_DATE", datetime_str)
             .env("GIT_CONFIG_NOSYSTEM", "true")
-            .env("HOME", "/dev/null")
+            .env("HOME", self.path)
+            .env("XDG_CONFIG_HOME", self.path)
+            .env(
+                "GIT_CONFIG_GLOBAL",
+                self.path.join("nonexistent-global-config"),
+            )
             .output()
             .unwrap_or_else(|error| panic!("failed to execute git {}: {error}", args.join(" ")));
 

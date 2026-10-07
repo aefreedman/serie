@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LogList>
+  <Changeset>
+    <ObjId>437</ObjId>
+    <ChangesetId>16</ChangesetId>
+    <Branch>/main/p3-contract-base/p3-conflict-target</Branch>
+    <Comment>P3 disposable conflict target change</Comment>
+    <Owner>developer@example.com</Owner>
+    <GUID>f684a652-5870-43d1-b524-7374a3e1e9b7</GUID>
+    <Changes>
+      <Item>
+        <Branch>/main/p3-contract-base/p3-conflict-target</Branch>
+        <RevNo>16</RevNo>
+        <Owner>developer@example.com</Owner>
+        <RevId>538</RevId>
+        <ParentRevId>530</ParentRevId>
+        <SrcCmPath>/p3-conflict.txt</SrcCmPath>
+        <SrcParentItemId>2</SrcParentItemId>
+        <DstCmPath>/p3-conflict.txt</DstCmPath>
+        <DstParentItemId>2</DstParentItemId>
+        <Date>2026-09-14T12:28:15-04:00</Date>
+        <Type>Changed</Type>
+      </Item>
+    </Changes>
+    <Date>2026-09-14T12:28:15-04:00</Date>
+  </Changeset>
+</LogList>

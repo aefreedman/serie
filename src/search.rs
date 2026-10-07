@@ -28,7 +28,7 @@ impl SearchTarget {
             Self::Subject => "subject",
             Self::Author => "author",
             Self::Ref => "ref",
-            Self::Hash => "hash",
+            Self::Hash => "changeset",
         }
     }
 }
