@@ -36,7 +36,9 @@ There is no default Git diff command. Historical diffs are deferred.
 
 ## Headless validation
 
-No terminal, image protocol, config file, clipboard, or Git installation is needed:
+No terminal, image protocol, clipboard, or Git installation is needed. A config
+file is optional; if present it is validated, and its ordering option applies
+unless overridden by `--order`:
 
 ```powershell
 .\target\debug\serie.exe --workspace "C:/path/to/workspace" --dump --detail 16
