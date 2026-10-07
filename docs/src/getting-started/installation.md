@@ -1,5 +1,15 @@
 # Installation
 
+## Local Plastic port
+
+Build from this checkout with Rust 1.88+: `cargo build --locked` (or add
+`--release`). Run `./target/debug/serie --workspace "/path/to/workspace" --protocol
+text`; on Windows use `.\target\debug\serie.exe`. A trusted authenticated `cm`
+on PATH is required. See [Requirements](./requirements.md).
+
+The package/release instructions below install **upstream Git Serie**, not this
+local Plastic port. They are retained as upstream reference only.
+
 ### [Cargo](https://crates.io/crates/serie)
 
 ```

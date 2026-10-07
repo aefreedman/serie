@@ -1,5 +1,14 @@
 # Compatibility
 
+The Plastic port provides Unicode `--protocol text` on ordinary terminals,
+including Windows, without image support. Auto uses text unless Kitty/iTerm is
+detected. Text-cell construction has automated coverage, but interactive Windows
+terminal and native macOS/Linux execution remain unverified. A node occupies one
+cell, so adjacent nodes may appear separated; terminal/font behavior varies.
+
+The image-protocol tables below are inherited upstream reports, not newly
+verified port coverage. Terminal graphics remain deferred for live validation.
+
 ## Supported terminal emulators
 
 These image protocols are supported:
@@ -8,7 +17,7 @@ These image protocols are supported:
 - [Terminal graphics protocol (kitty)](https://sw.kovidgoyal.net/kitty/graphics-protocol/)
   - Supports both the existing graphics protocol mode and [the Unicode placeholder](https://sw.kovidgoyal.net/kitty/graphics-protocol/#unicode-placeholders) mode.
 
-The terminals on which each has been confirmed to work are listed below.
+The terminals reported by upstream to work are listed below.
 
 ### Inline Images Protocol
 
@@ -39,4 +48,4 @@ Rendering using Unicode Placeholder is available by explicitly specifying `kitty
 
 - Sixel graphics is not supported.
 - Other terminal multiplexers (screen, Zellij, etc.) other than those listed in [Partially supported environments](#partially-supported-environments) are not supported.
-- Windows is not officially supported. Please refer to [the related issue](https://github.com/lusingander/serie/issues/147#issuecomment-4192875627).
+- Upstream reported Windows image limitations in [the related issue](https://github.com/lusingander/serie/issues/147#issuecomment-4192875627); this does not prohibit the port's text mode.

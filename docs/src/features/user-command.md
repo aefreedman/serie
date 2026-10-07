@@ -4,7 +4,10 @@ Only explicitly configured operator commands execute. There is no built-in Git,
 diff or mutation command. The history backend remains read-only; configured
 commands are **trusted operator intent**, can have effects, and are not restricted
 to read-only operations. Do not configure untrusted executables or arguments.
-Custom clipboard subprocesses remain disabled in the Plastic entry point.
+Explicit custom clipboard subprocesses are honored via `core.external.clipboard`;
+Auto remains the default. They receive exact UTF-8 stdin without an added newline,
+run without a shell, report failures, and have no timeout. See
+[configuration](../configurations/config-file-format.md#coreexternalclipboard).
 
 Commands are argv arrays, launched directly without a shell, with the selected
 `--workspace` as cwd (including silent and suspended commands). Shell syntax is

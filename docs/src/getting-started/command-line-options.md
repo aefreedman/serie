@@ -2,30 +2,40 @@
 
 ## -n, --max-count \<NUMBER\>
 
-Maximum number of commits to render.
-
-If not specified, all commits will be rendered.
-It behaves similarly to the `--max-count` option of `git log`.
+Maximum changesets to load: `1..10000`, default **500**. This intentional bounded
+newest-ID window is not full history. Integrations and references are separately
+bounded (2000 integrations; 2000 references per kind). Missing endpoints and
+truncation are disclosed; refresh uses the same limits.
 
 ## -p, --protocol \<TYPE\>
 
-A protocol type for rendering images of commit graphs.
+A rendering protocol for changeset graphs, including text without image escapes.
 
-_Possible values:_ `auto`, `iterm`, `kitty`, `kitty-unicode`
+_Possible values:_ `auto`, `text`, `iterm`, `kitty`, `kitty-unicode`
 
-By default `auto` will guess the best supported protocol for the current terminal (if listed in [Supported terminal emulators](./compatibility.md#supported-terminal-emulators)).
+`auto` selects detected Kitty/iTerm images, otherwise Unicode `text` (including
+ordinary Windows terminals). Explicit `text` avoids image uploads. See
+[Compatibility](./compatibility.md) for validation limitations.
 
 ## -o, --order \<TYPE\>
 
-Commit ordering algorithm.
+Changeset ordering within the bounded window. CLI overrides `[core.option] order`;
+default `chrono`. Both modes emit loaded children before primary and ordinary
+merge parents; other integration types remain evidence, not ancestry.
 
 _Possible values:_ `chrono`, `topo`
 
-`chrono` will order commits by commit date if possible.
+`chrono` chooses the newest timestamp among eligible changesets, not a naive
+date sort. Timestamp skew cannot place a loaded parent before its child.
 
 <img src="https://raw.githubusercontent.com/lusingander/serie/master/img/order-chrono.png" width=300>
 
-`topo` will order commits on the same branch consecutively if possible.
+`topo` follows newly unblocked ancestry depth-first (primary before ordinary merge
+parents), then returns to the newest eligible tip. Shared parents wait for all
+loaded children. It is not branch-name grouping. Date priorities compare instants
+including timezone offsets; ties use descending numeric IDs then selectors.
+Neither mode changes the query window or fabricates ancestry. The images on this
+page illustrate upstream Git behavior, not live Plastic evidence.
 
 <img src="https://raw.githubusercontent.com/lusingander/serie/master/img/order-topo.png" width=300>
 
@@ -41,7 +51,6 @@ If not specified or `auto` is specified, `double` will be used automatically if 
 
 <img src="https://raw.githubusercontent.com/lusingander/serie/master/img/graph-width-single.png" width=300>
 
-</details>
 
 ## -s, --graph-style \<TYPE\>
 
@@ -63,12 +72,30 @@ The initial selection of commit when starting the application.
 
 _Possible values:_ `latest`, `head`
 
-`latest` will select the latest commit.
+`latest` selects the first changeset in the chosen order.
 
-`head` will select the commit at HEAD.
+`head` selects the loaded workspace changeset if visible (`LOADED` marker); it
+does not switch or update the workspace.
 
 ## -b, --primary-branch \<BRANCH\>
 
 The primary branch to keep on the leftmost column.
 
-When specified, Serie preserves the first-parent commit spine of the specified branch along the leftmost column, displaying other branches in subsequent columns even if they contain newer commits.
+When specified (for example `/main`), Serie follows the loaded primary-parent
+spine from that branch's producer `CHANGESET` annotation on the leftmost column.
+This does not infer a branch tip from names or consecutive changeset numbers.
+An unresolved or out-of-window annotation produces a warning; no missing nodes
+are fabricated. It changes layout, not history ordering.
+
+## --workspace <PATH>
+
+Workspace cwd for read-only `cm status`, scoped `cm find`, and lazy `cm log`.
+Defaults to the current directory; quoted paths may contain spaces.
+
+## --dump and --detail <NUMBER>
+
+`--dump` prints qualified selectors, metadata, graph rows, primary edges, typed
+integrations, branch/label annotations, missing endpoints, and warnings without
+a terminal or clipboard. An optional config is validated; ordering still applies.
+`--detail NUMBER` requires `--dump` and a changeset inside the loaded window; it
+adds raw changed-path evidence. Errors exit nonzero. Dump text is not shell code.

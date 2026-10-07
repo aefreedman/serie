@@ -1,5 +1,14 @@
 # Introduction
 
+This local **Serie Plastic** port browses Unity Version Control changesets with a
+read-only bounded backend, branch/label annotations, and text or image graphs.
+It is not a Git client and has no default diff/action. See the
+[port README](https://github.com/aefreedman/serie/blob/plastic/README.md) for
+ordering, topology boundaries, and deferred rendering/diff investigation.
+
+The original upstream introduction below explains the project heritage; its Git
+goals and demo are not active backend capabilities of this port.
+
 **Serie** ([`/zéːriə/`](https://lusingander.github.io/serie/faq/index.html#how-do-i-pronounce-serie)) is a TUI application that uses the terminal emulators' image display protocol to render commit graphs like `git log --graph --all`.
 
 <img src="https://raw.githubusercontent.com/lusingander/serie/master/img/demo.gif">

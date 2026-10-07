@@ -1,5 +1,10 @@
 # Screenshots
 
+These are inherited upstream Git screenshots, not Plastic validation evidence.
+In particular, the diff images show opt-in upstream commands; this port provides
+no default diff command or implementation. Plastic refs are branches and labels,
+not Git remotes/stashes.
+
 <img src="https://raw.githubusercontent.com/lusingander/serie/master/img/list.png" width=600>
 <img src="https://raw.githubusercontent.com/lusingander/serie/master/img/detail.png" width=600>
 <img src="https://raw.githubusercontent.com/lusingander/serie/master/img/refs.png" width=600>

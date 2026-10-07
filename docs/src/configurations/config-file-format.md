@@ -2,9 +2,12 @@
 
 ## Example
 
+This is an opt-in example, not the default configuration. The `cm version`
+command is read-only; remove `commands_1` to leave user commands unconfigured.
+
 ```toml
 [core.option]
-protocol = "auto"
+protocol = "text"
 order = "chrono"
 graph_width = "auto"
 graph_style = "rounded"
@@ -19,7 +22,7 @@ ignore_case = false
 fuzzy = false
 
 [core.user_command]
-commands_1 = { name = "git diff", commands = ["git", "--no-pager", "diff", "--color=always", "{{first_parent_hash}}", "{{target_hash}}"]}
+commands_1 = { name = "cm version", commands = ["cm", "version"] }
 tab_width = 4
 
 [core.external]
@@ -114,12 +117,16 @@ divider_fg = "dark-gray"
 
 ### `core.option.protocol`
 
-The protocol type for rendering images of commit graphs.
+The rendering protocol for changeset graphs. `text` draws Unicode cells without
+image escapes; Auto selects detected Kitty/iTerm images, otherwise text.
+Interactive terminal/font behavior remains unverified; adjacent nodes may appear
+separated because a text node cell cannot also contain connection arms.
 
 - type: `string` (enum)
 - default: `auto`
 - possible values:
   - `auto`
+  - `text`
   - `iterm`
   - `kitty`
   - `kitty-unicode`
@@ -128,7 +135,11 @@ The value specified in the command line argument takes precedence.
 
 ### `core.option.order`
 
-The commit ordering algorithm.
+Changeset ordering within the intentional bounded window (default 500, CLI cap
+10000). Both modes keep loaded children before primary and ordinary merge parents.
+`chrono` chooses newest eligible timestamps; `topo` follows newly unblocked
+ancestry depth-first before other tips, not branch-name grouping. See
+[CLI ordering](../getting-started/command-line-options.md) for details.
 
 - type: `string` (enum)
 - default: `chrono`
@@ -165,7 +176,8 @@ The value specified in the command line argument takes precedence.
 
 ### `core.option.initial_selection`
 
-The initial selection of commit when starting the application.
+The initial selection of changeset: `latest` is the first row in the selected
+order; `head` is the loaded workspace changeset if visible (the `LOADED` marker).
 
 - type: `string` (enum)
 - default: `latest`
@@ -177,12 +189,12 @@ The value specified in the command line argument takes precedence.
 
 ### `core.git.mailmap`
 
-Whether to resolve author and committer identities through the repository's [`.mailmap`](https://git-scm.com/docs/gitmailmap) file.
+Compatibility-only Git setting; inert in the Plastic production backend.
 
 - type: `boolean`
 - default: `false`
 
-When enabled, names and emails are displayed as mapped by `.mailmap`, in the same way as `git log` and `git shortlog`. Repositories without a `.mailmap` file are unaffected.
+Plastic owner metadata is retained; no Git mailmap lookup is performed.
 
 ### `graph.row_image_width`
 
@@ -203,11 +215,11 @@ The field to search when the application starts. The target can be toggled while
 - type: `string` (enum)
 - default: `all`
 - possible values:
-  - `all`: Search refs, commit subjects, author names, and short commit hashes
-  - `subject`: Search commit subjects
-  - `author`: Search author names
-  - `ref`: Search branch, remote branch, and tag names
-  - `hash`: Search short commit hashes
+  - `all`: Search branch/label refs, changeset subjects, owners, and full numeric changeset IDs
+  - `subject`: Search changeset subjects
+  - `author`: Search owner names
+  - `ref`: Search branch and label names (no Git remotes/stashes)
+  - `hash`: Search full numeric changeset IDs (`hash` is a compatibility name)
 
 ### `core.search.ignore_case`
 
@@ -237,15 +249,18 @@ For details about user command, see the separate [User command](../features/user
     - default: `inline`
     - possible values:
       - `inline`: Display the output of the command in the user command view.
-      - `silent`: Execute the command in the background without opening a view.
+      - `silent`: Wait for the command without opening a view (not detached).
       - `suspend`: Execute the command by suspending the application. This is useful for interactive commands.
   - `commands`: `array of strings` - The command and its arguments.
   - `refresh`: `boolean` - Whether to reload the repository and refresh the display after executing the command. Available for `silent` and `suspend` commands.
     - default: `false`
 - examples:
-    - `commands_1 = { name = "git diff", commands = ["git", "--no-pager", "diff", "--color=always", "{{first_parent_hash}}", "{{target_hash}}"]}`
-    - `commands_2 = { name = "delete branch", type = "silent", commands = ["git", "branch", "-D", "{{branches}}"], refresh = true }`
-    - `commands_3 = { name = "amend commit", type = "suspend", commands = ["git", "commit", "--amend"], refresh = true }`
+    - `commands_1 = { name = "cm version", commands = ["cm", "version"] }`
+    - `commands_2 = { name = "cm help", type = "silent", commands = ["cm", "help"] }`
+    - `commands_3 = { name = "cm version", type = "suspend", commands = ["cm", "version"] }`
+
+No command is configured by default. The examples are opt-in and read-only; other
+trusted commands can have effects and have no deadline/output cap.
   
 ### `core.user_command.tab_width`
 
@@ -256,7 +271,11 @@ The number of spaces to replace tabs in the user command output.
 
 ### `core.external.clipboard`
 
-The clipboard command to use for copy operations.
+The clipboard mechanism for qualified changeset/branch/label selector copying.
+Explicit custom configuration is honored. Commands run directly as executable/argv
+without a shell, receive exact UTF-8 stdin without an added newline, and report
+spawn/write/wait/nonzero failures. Blank executables are rejected. Trusted custom
+clipboard commands have no timeout and may block or have effects.
 
 - type: `object` (enum)
 - default: `auto`
@@ -433,3 +452,15 @@ Colors should be specified in one of the following formats:
 Key bindings for various actions in the application.
 
 See the separate [Custom Keybindings](../keybindings/custom-keybindings.md) section for details.
+
+## Compatibility names and Plastic detail colors
+
+Serialized `hash`/`list_hash_fg`/`detail_hash_fg` mean the full numeric changeset ID;
+`tag` color keys mean labels. `list_head_fg` styles the loaded workspace marker.
+Remote-branch and stash settings remain accepted but have no active Plastic refs.
+`core.git.mailmap` is inert. No default Git action is implied by these names.
+
+Detail status foregrounds use `detail_file_change_add_fg` for exact `Added`,
+`detail_file_change_modify_fg` for `Changed`, `detail_file_change_delete_fg` for
+`Deleted`, and `detail_file_change_move_fg` for `Moved`. Unknown statuses remain
+neutral and verbatim; paths and revision evidence are not colored or discarded.

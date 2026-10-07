@@ -4,7 +4,7 @@ You can set your own custom key bindings.
 
 Custom key bindings can be applied by writing them in the `[keybind]` section of [the config file](../configurations/config-file-format.md).
 
-The default key binding settings are described in [`./assets/default-keybind.toml`](https://github.com/lusingander/serie/blob/master/assets/default-keybind.toml).
+The local defaults are in `assets/default-keybind.toml`; the inherited reference is [`./assets/default-keybind.toml`](https://github.com/lusingander/serie/blob/master/assets/default-keybind.toml).
 You can set key bindings for each action in the same format.
 
 - It is possible to set multiple key bindings for one action.
@@ -49,3 +49,7 @@ Modifiers can be combined, for example: `ctrl-shift-a`.
 ### Character Keys
 
 Any single character not listed above (e.g., `a`, `b`, `1`, `!`) can be used as a key.
+
+`short_copy` and `full_copy` remain serialized compatibility names: both copy
+full qualified Plastic selectors. User-command bindings do not create commands;
+none are configured by default.
