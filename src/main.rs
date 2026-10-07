@@ -45,7 +45,7 @@ use serde::Deserialize;
 #[derive(Parser)]
 #[command(version)]
 struct Args {
-    /// Plastic workspace used as cwd for all read-only cm queries
+    /// Plastic workspace used as cwd for history queries and configured commands
     #[arg(long, default_value = ".")]
     workspace: std::path::PathBuf,
 
@@ -180,7 +180,6 @@ fn main() -> Result<()> {
         let repository = git::Repository::load_plastic(&args.workspace, order, args.max_count)?;
         return dump_repository(&repository, args.detail.as_deref());
     }
-    core_config.user_command.commands.clear();
     core_config.external.clipboard = config::ClipboardConfig::Auto;
     let keybind = keybind::KeyBind::new(keybind_patch);
 
@@ -198,6 +197,7 @@ fn main() -> Result<()> {
     let graph_color_set = color::GraphColorSet::new(&graph_config.color);
 
     let ctx = Rc::new(app::AppContext {
+        workspace: args.workspace.canonicalize()?,
         keybind,
         core_config,
         ui_config,

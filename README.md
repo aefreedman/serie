@@ -23,13 +23,15 @@ cargo build --locked
 ./target/debug/serie --workspace "/path/to/workspace" --protocol text
 ```
 
-The workspace defaults to the current directory. It is used only as the cwd for
+The workspace defaults to the current directory. It is used as the cwd for
 read-only `cm status`, repository-scoped `cm find`, and lazy `cm log` queries.
-No switch/update/merge/checkin or filesystem writes are performed there.
+The built-in history backend performs no switch/update/merge/checkin or filesystem writes there.
 The production executable does not include the legacy Git query implementation;
 upstream Git graph regression tests operate only in temporary test repositories.
-External user commands (including configured commands) and custom clipboard
-subprocesses are disabled. Clipboard copying uses the system clipboard library.
+Explicitly configured [user commands](docs/src/features/user-command.md) run in
+the selected workspace as trusted operator intent and may have effects. No commands
+are configured by default. Custom clipboard subprocesses remain disabled; clipboard
+copying uses the system clipboard library.
 There is no default Git diff command. Historical diffs are deferred.
 
 ## Headless validation

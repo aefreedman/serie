@@ -1,98 +1,62 @@
-# User Command
+# User Command (Plastic)
 
-The User command feature allows you to execute custom external commands.
-There are three types of user commands: `inline`, `silent` and `suspend`.
+Only explicitly configured operator commands execute. There is no built-in Git,
+diff or mutation command. The history backend remains read-only; configured
+commands are **trusted operator intent**, can have effects, and are not restricted
+to read-only operations. Do not configure untrusted executables or arguments.
+Custom clipboard subprocesses remain disabled in the Plastic entry point.
 
-- `inline` (default)
-  - Displays the output (stdout) of the command in a dedicated view within the TUI.
-  - This allows you to do things like view commit diffs using your favorite tools.
-- `silent`
-  - Executes the command in the background without opening a view.
-  - This is useful for operations that don't require checking output, such as deleting branches or adding tags.
-- `suspend`
-  - Executes the command by suspending the application.
-  - This is useful for interactive commands that require terminal control, such as `git commit --amend` (which opens an editor) or `git diff` with a pager.
-
-To define a user command, you need to configure the following two settings:
-- Keybinding definition. Specify the key to execute each user command.
-  - Config: `keybind.user_command_{n}`
-- Command definition. Specify the actual command you want to execute.
-  - Config: `core.user_command.commands_{n}`
-
-Example configuration in `config.toml`:
+Commands are argv arrays, launched directly without a shell, with the selected
+`--workspace` as cwd (including silent and suspended commands). Shell syntax is
+literal unless you explicitly configure a shell. Empty executables are rejected.
 
 ```toml
 [keybind]
 user_command_1 = ["d"]
-user_command_2 = ["shift-d"]
-user_command_3 = ["b"]
-user_command_4 = ["a"]
 
 [core.user_command]
-# Inline command (default)
-commands_1 = { "name" = "git diff", commands = ["git", "--no-pager", "diff", "--color=always", "{{first_parent_hash}}", "{{target_hash}}"] }
-# Inline command with custom area size
-commands_2 = { "name" = "xxx", commands = ["xxx", "{{first_parent_hash}}", "{{target_hash}}", "--width", "{{area_width}}", "--height", "{{area_height}}"] }
-# Silent command with refresh
-commands_3 = { "name" = "delete branch", type = "silent", commands = ["git", "branch", "-D", "{{branches}}"], refresh = true }
-# Suspend command with refresh
-commands_4 = { "name" = "amend commit", type = "suspend", commands = ["git", "commit", "--amend"], refresh = true }
+commands_1 = { name = "Inspect changeset", commands = ["my-read-only-helper", "{{changeset}}", "{{primary_parent}}", "{{labels}}"] }
 ```
 
-## Refresh
+The example helper is operator-supplied, not bundled. Existing Serie modes remain:
 
-For `silent` and `suspend` commands, you can set `refresh = true` to automatically reload the repository and refresh the display (e.g., commit list) after the command is executed.
-This is useful when the command modifies the repository state.
+- `inline` (default): captures stdout in the command view; ANSI color and tabs
+  are supported. Selecting another changeset reruns it; the same binding closes it.
+- `silent`: captures/discards output without opening a view; waits for completion
+  (background means no output view, not an asynchronous/detached process).
+- `suspend`: leaves the TUI/raw mode for an interactive command, then restores it.
 
-Note that `refresh = true` cannot be used with `inline` commands.
+Spawn/nonzero failures are reported. Silent refresh occurs on success; suspend
+refresh occurs after the attempted execution, even on failure, matching Serie.
+`refresh = true` reloads the bounded repository for silent/suspend commands; it
+is invalid for inline commands. Manual refresh reloads and reruns an inline view.
+No deadlines/output caps are imposed on operator commands; they can block the UI.
 
-## Variables
+## Placeholders
 
-The following variables can be used in command definitions.
-They will be replaced with their respective values command is executed.
+| Placeholder | Plastic value / legacy alias |
+| --- | --- |
+| `{{changeset}}` | Selected qualified `cs:17@rep:demo@repserver:server:8087`; alias `{{target_hash}}` |
+| `{{primary_parent}}` | Explicit producer primary parent selector, not the first merge layout edge; alias `{{first_parent_hash}}` |
+| `{{parents}}` | Primary parent followed by deduplicated ordinary merge sources from loaded evidence; alias `{{parent_hashes}}` |
+| `{{branches}}` | Qualified `br:/main@rep:demo@repserver:server:8087` annotations pointing at the selected changeset |
+| `{{labels}}` | Qualified `lb:release one@rep:demo@repserver:server:8087` annotations; alias `{{tags}}` |
+| `{{refs}}` | Branch and label annotations above |
+| `{{remote_branches}}`, `{{stash}}` | Empty; no Plastic counterpart |
+| `{{area_width}}`, `{{area_height}}` | Output area dimensions in cells |
 
-### Variable list
+Primary-parent absence produces an empty string (including a root with ordinary
+merge evidence). A known parent outside the history window retains its qualified
+selector. Parent collections include evidenced ordinary merge sources even outside
+the window; typed nonordinary integrations are not parents. Bounded reads can omit
+merge/ref evidence; collections do not imply complete repository history.
 
-- `{{target_hash}}`
-  - The hash of the selected commit.
-  - example: `b0ce4cb9c798576af9b4accc9f26ddce5e72063d`
-- `{{first_parent_hash}}`
-  - The hash of the first parent of the selected commit.
-  - example: `c103d9744df8ebf100773a11345f011152ec5581`
-- `{{parent_hashes}}`
-  - The hashes of all parents of the selected commit, separated by a space.
-  - example: `c103d9744df8ebf100773a11345f011152ec5581 a1b2c3d4e5f67890123456789abcdef0123456789`
-- `{{refs}}`
-  - The names of all refs (branches, remote branches, tags) pointing to the selected commit, separated by a space.
-  - example: `master v1.0.0`
-- `{{branches}}`
-  - The names of all branches pointing to the selected commit, separated by a space.
-  - example: `master feature-branch`
-- `{{remote_branches}}`
-  - The names of all remote branches pointing to the selected commit, separated by a space.
-  - example: `origin/master origin/feature-branch`
-- `{{tags}}`
-  - The names of all tags pointing to the selected commit, separated by a space.
-  - example: `v1.0.0 v1.0.1`
-- `{{stash}}`
-  - The name of the stash when the selected commit is a stash commit. Otherwise, this is an empty string.
-  - example: `stash@{0}`
-- `{{area_width}}`
-  - Width of the user command display area (number of cells).
-  - example: `80`
-- `{{area_height}}`
-  - Height of the user command display area (number of cells).
-  - example: `30`
+Standalone collection placeholders expand to separate argv items, preserving
+spaces and exact qualifiers. Empty collections remove that argument. Embedded
+collections join with spaces in one argument. Missing scalar values remain an
+empty argument. Unknown placeholders remain literal. No shell quoting or escaping
+is added, and substituted values are not reinterpreted as placeholders.
 
-### List variables and argument expansion
-
-Variables that represent multiple values (marked with "separated by a space" below) are handled specially:
-
-- Standalone Marker
-  - If used as a single argument (e.g., `["git", "branch", "-D", "{{branches}}"]`), it is expanded into multiple separate arguments (e.g., `["git", "branch", "-D", "br1", "br2"]`).
-- Combined Marker
-  - If combined with other characters (e.g., `["echo", "refs: {{refs}}"]`), it is replaced as a single space-separated string (e.g., `["echo", "refs: ref1 ref2"]`).
-- Empty List
-  - If the list is empty and used as a standalone marker, the argument is completely removed (e.g., `["git", "branch", "-D", "{{branches}}"]` becomes `["git", "branch", "-D"]`).
-
-Using standalone markers is recommended when passing multiple values to commands that expect separate arguments, and it correctly handles names containing spaces.
+Native macOS/Linux execution and interactive terminal lifecycle remain unverified
+by local Windows unit tests. Validation uses only benign temporary helpers, not
+mutation commands on sandbox or real workspaces.

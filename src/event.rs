@@ -148,27 +148,24 @@ impl EventController {
         *self.handle.lock().unwrap() = Some(handle);
     }
 
-    pub fn resume(&self) {
-        ratatui::crossterm::execute!(
+    pub fn resume(&self) -> std::io::Result<()> {
+        let screen = ratatui::crossterm::execute!(
             std::io::stdout(),
             ratatui::crossterm::terminal::EnterAlternateScreen
-        )
-        .unwrap();
-        ratatui::crossterm::terminal::enable_raw_mode().unwrap();
-
+        );
+        let raw = ratatui::crossterm::terminal::enable_raw_mode();
         self.drain_crossterm_event();
         self.start();
+        screen.and(raw)
     }
 
-    pub fn suspend(&self) {
+    pub fn suspend(&self) -> std::io::Result<()> {
         self.stop();
-
-        ratatui::crossterm::terminal::disable_raw_mode().unwrap();
+        ratatui::crossterm::terminal::disable_raw_mode()?;
         ratatui::crossterm::execute!(
             std::io::stdout(),
             ratatui::crossterm::terminal::LeaveAlternateScreen
         )
-        .unwrap();
     }
 
     fn stop(&self) {

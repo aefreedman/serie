@@ -19,7 +19,8 @@ use crate::{
     },
 };
 
-type ExecCommandFn = fn(&Commit, &[Ref], usize, Rect, &AppContext) -> Result<String, String>;
+type ExecCommandFn =
+    fn(&Repository, &Commit, &[Ref], usize, Rect, &AppContext) -> Result<String, String>;
 
 #[derive(Debug)]
 pub struct UserCommandView<'a> {
@@ -179,7 +180,10 @@ impl<'a> UserCommandView<'a> {
     }
 
     fn split_areas(&self, area: Rect) -> [Rect; 2] {
-        let user_command_height = (area.height - 1).min(self.ctx.ui_config.user_command.height);
+        let user_command_height = area
+            .height
+            .saturating_sub(1)
+            .min(self.ctx.ui_config.user_command.height);
         Layout::vertical([Constraint::Min(0), Constraint::Length(user_command_height)]).areas(area)
     }
 
@@ -232,6 +236,7 @@ impl<'a> UserCommandView<'a> {
         let (commit, _) = repository.commit_detail(&selected);
         let refs: Vec<Ref> = repository.refs(&selected).into_iter().cloned().collect();
         self.user_command_output_lines = exec_command(
+            repository,
             &commit,
             &refs,
             self.user_command_number,
@@ -271,4 +276,33 @@ fn build_user_command_output_lines<'a>(
         .into_text()
         .map(|t| t.into_iter().collect())
         .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn output_tabs_ansi_and_empty_are_safe() {
+        let ctx = Rc::new(AppContext {
+            workspace: ".".into(),
+            keybind: crate::keybind::KeyBind::default(),
+            core_config: crate::config::CoreConfig::default(),
+            ui_config: crate::config::UiConfig::default(),
+            color_theme: crate::color::ColorTheme::default(),
+            image_protocol: crate::protocol::ImageProtocol::Text,
+        });
+        let lines =
+            build_user_command_output_lines("\x1b[31mred\x1b[0m\ttext\nsecond".into(), ctx.clone())
+                .unwrap();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(
+            lines[0].to_string(),
+            format!(
+                "red{}text",
+                " ".repeat(ctx.core_config.user_command.tab_width as usize)
+            )
+        );
+        assert!(build_user_command_output_lines(String::new(), ctx).is_ok());
+    }
 }

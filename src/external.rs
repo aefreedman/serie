@@ -1,4 +1,4 @@
-use std::{cell::RefCell, process::Command};
+use std::{cell::RefCell, path::Path, process::Command};
 
 use arboard::Clipboard;
 
@@ -73,22 +73,25 @@ fn copy_to_clipboard_auto(value: String) -> Result<(), String> {
 
 pub struct ExternalCommandParameters<'a> {
     pub command: &'a [String],
-    pub target_hash: &'a str,
-    pub parent_hashes: Vec<&'a str>,
-    pub all_refs: Vec<&'a str>,
-    pub branches: Vec<&'a str>,
-    pub remote_branches: Vec<&'a str>,
-    pub tags: Vec<&'a str>,
-    pub stash: Option<&'a str>,
+    pub workspace: &'a Path,
+    pub target_hash: String,
+    pub primary_parent: Option<String>,
+    pub parent_hashes: Vec<String>,
+    pub all_refs: Vec<String>,
+    pub branches: Vec<String>,
+    pub remote_branches: Vec<String>,
+    pub tags: Vec<String>,
+    pub stash: Option<String>,
     pub area_width: u16,
     pub area_height: u16,
 }
 
 pub fn exec_user_command(params: ExternalCommandParameters) -> Result<String, String> {
-    let command = build_user_command(&params);
+    let command = build_user_command(&params)?;
 
     let output = Command::new(&command[0])
         .args(&command[1..])
+        .current_dir(params.workspace)
         .output()
         .map_err(|e| format!("Failed to execute command: {e:?}"))?;
 
@@ -105,10 +108,11 @@ pub fn exec_user_command(params: ExternalCommandParameters) -> Result<String, St
 }
 
 pub fn exec_user_command_suspend(params: ExternalCommandParameters) -> Result<(), String> {
-    let command = build_user_command(&params);
+    let command = build_user_command(&params)?;
 
     let output = Command::new(&command[0])
         .args(&command[1..])
+        .current_dir(params.workspace)
         .status()
         .map_err(|e| format!("Failed to execute command: {e:?}"))?;
 
@@ -120,9 +124,13 @@ pub fn exec_user_command_suspend(params: ExternalCommandParameters) -> Result<()
     Ok(())
 }
 
-fn build_user_command(params: &ExternalCommandParameters) -> Vec<String> {
-    fn to_vec(ss: &[&str]) -> Vec<String> {
-        ss.iter().map(|s| s.to_string()).collect()
+fn build_user_command(params: &ExternalCommandParameters) -> Result<Vec<String>, String> {
+    if params
+        .command
+        .first()
+        .is_none_or(|s| replace_command_arg(s, params).trim().is_empty())
+    {
+        return Err("No user command executable specified".into());
     }
     let mut command = Vec::new();
     for arg in params.command {
@@ -133,39 +141,207 @@ fn build_user_command(params: &ExternalCommandParameters) -> Vec<String> {
         match arg.as_str() {
             // If the marker is used as a standalone argument, expand it into multiple arguments.
             // This allows the command to receive each item as a separate argument and correctly handle items that contain spaces.
-            USER_COMMAND_BRANCHES_MARKER => command.extend(to_vec(&params.branches)),
-            USER_COMMAND_REMOTE_BRANCHES_MARKER => command.extend(to_vec(&params.remote_branches)),
-            USER_COMMAND_TAGS_MARKER => command.extend(to_vec(&params.tags)),
-            USER_COMMAND_REFS_MARKER => command.extend(to_vec(&params.all_refs)),
-            USER_COMMAND_PARENT_HASHES_MARKER => command.extend(to_vec(&params.parent_hashes)),
+            USER_COMMAND_BRANCHES_MARKER => command.extend(params.branches.clone()),
+            USER_COMMAND_REMOTE_BRANCHES_MARKER => command.extend(params.remote_branches.clone()),
+            USER_COMMAND_TAGS_MARKER | "{{labels}}" => command.extend(params.tags.clone()),
+            USER_COMMAND_REFS_MARKER => command.extend(params.all_refs.clone()),
+            USER_COMMAND_PARENT_HASHES_MARKER | "{{parents}}" => {
+                command.extend(params.parent_hashes.clone())
+            }
             // Otherwise, replace the marker within the single argument string.
             _ => command.push(replace_command_arg(arg, params)),
         }
     }
-    command
+    Ok(command)
 }
 
 fn replace_command_arg(s: &str, params: &ExternalCommandParameters) -> String {
     let sep = " ";
-    let target_hash = params.target_hash;
-    let first_parent_hash = &params.parent_hashes.first().cloned().unwrap_or_default();
+    let target_hash = &params.target_hash;
+    let first_parent_hash = params.primary_parent.as_deref().unwrap_or_default();
     let parent_hashes = &params.parent_hashes.join(sep);
     let all_refs = &params.all_refs.join(sep);
     let branches = &params.branches.join(sep);
     let remote_branches = &params.remote_branches.join(sep);
     let tags = &params.tags.join(sep);
-    let stash = params.stash.unwrap_or_default();
+    let stash = params.stash.as_deref().unwrap_or_default();
     let area_width = &params.area_width.to_string();
     let area_height = &params.area_height.to_string();
 
-    s.replace(USER_COMMAND_TARGET_HASH_MARKER, target_hash)
-        .replace(USER_COMMAND_FIRST_PARENT_HASH_MARKER, first_parent_hash)
-        .replace(USER_COMMAND_PARENT_HASHES_MARKER, parent_hashes)
-        .replace(USER_COMMAND_REFS_MARKER, all_refs)
-        .replace(USER_COMMAND_BRANCHES_MARKER, branches)
-        .replace(USER_COMMAND_REMOTE_BRANCHES_MARKER, remote_branches)
-        .replace(USER_COMMAND_TAGS_MARKER, tags)
-        .replace(USER_COMMAND_STASH_MARKER, stash)
-        .replace(USER_COMMAND_AREA_WIDTH_MARKER, area_width)
-        .replace(USER_COMMAND_AREA_HEIGHT_MARKER, area_height)
+    // Scan the template once: producer names may themselves contain marker text.
+    let mut result = String::new();
+    let mut rest = s;
+    while let Some(start) = rest.find(USER_COMMAND_MARKER_PREFIX) {
+        result.push_str(&rest[..start]);
+        rest = &rest[start..];
+        let Some(end) = rest.find("}}") else {
+            break;
+        };
+        let marker = &rest[..end + 2];
+        let value = match marker {
+            USER_COMMAND_TARGET_HASH_MARKER | "{{changeset}}" => target_hash,
+            USER_COMMAND_FIRST_PARENT_HASH_MARKER | "{{primary_parent}}" => first_parent_hash,
+            USER_COMMAND_PARENT_HASHES_MARKER | "{{parents}}" => parent_hashes,
+            USER_COMMAND_REFS_MARKER => all_refs,
+            USER_COMMAND_BRANCHES_MARKER => branches,
+            USER_COMMAND_REMOTE_BRANCHES_MARKER => remote_branches,
+            USER_COMMAND_TAGS_MARKER | "{{labels}}" => tags,
+            USER_COMMAND_STASH_MARKER => stash,
+            USER_COMMAND_AREA_WIDTH_MARKER => area_width,
+            USER_COMMAND_AREA_HEIGHT_MARKER => area_height,
+            _ => marker,
+        };
+        result.push_str(value);
+        rest = &rest[end + 2..];
+    }
+    result.push_str(rest);
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn params<'a>(command: &'a [String], workspace: &'a Path) -> ExternalCommandParameters<'a> {
+        ExternalCommandParameters {
+            command,
+            workspace,
+            target_hash: "cs:17@rep:demo repo@repserver:server:8087".into(),
+            primary_parent: None,
+            parent_hashes: vec!["cs:14@rep:demo repo@repserver:server:8087".into()],
+            branches: vec!["br:/main/spaced branch@rep:demo repo@repserver:server:8087".into()],
+            tags: vec!["lb:release one@rep:demo repo@repserver:server:8087".into()],
+            all_refs: vec![
+                "br:/main/spaced branch@rep:demo repo@repserver:server:8087".into(),
+                "lb:release one@rep:demo repo@repserver:server:8087".into(),
+            ],
+            remote_branches: vec![],
+            stash: None,
+            area_width: 80,
+            area_height: 20,
+        }
+    }
+
+    #[test]
+    fn qualified_aliases_and_argv_expansion() {
+        let command: Vec<String> = [
+            "helper",
+            "{{changeset}}",
+            "{{target_hash}}",
+            "{{primary_parent}}",
+            "{{first_parent_hash}}",
+            "{{parents}}",
+            "{{parent_hashes}}",
+            "{{branches}}",
+            "{{labels}}",
+            "{{tags}}",
+            "{{refs}}",
+            "refs={{refs}}",
+            "{{remote_branches}}",
+            "{{stash}}",
+            "{{area_width}}x{{area_height}}",
+            "literal ; $value",
+        ]
+        .map(str::to_owned)
+        .into();
+        let p = params(&command, Path::new("."));
+        let argv = build_user_command(&p).unwrap();
+        assert_eq!(argv[1], p.target_hash);
+        assert_eq!(argv[1], argv[2]);
+        assert_eq!(&argv[3..5], ["", ""]); // merge-only must not become primary
+        assert_eq!(argv[5], argv[6]);
+        assert_eq!(argv[7], p.branches[0]);
+        assert_eq!(argv[8], argv[9]);
+        assert_eq!(&argv[10..12], p.all_refs);
+        assert_eq!(argv[12], format!("refs={}", p.all_refs.join(" ")));
+        assert_eq!(&argv[13..], ["", "80x20", "literal ; $value"]);
+        let mut names = params(&command, Path::new("."));
+        names.tags = vec!["lb:{{area_width}} with spaces@rep:demo@repserver:server".into()];
+        assert_eq!(
+            replace_command_arg("label={{labels}}", &names),
+            format!("label={}", names.tags[0])
+        );
+        let mut root = params(&command, Path::new("."));
+        root.parent_hashes.clear();
+        assert!(!build_user_command(&root)
+            .unwrap()
+            .iter()
+            .any(|s| s.starts_with("cs:14")));
+    }
+
+    // The test executable is a benign temp helper: no shell, cm, Git or workspace mutations.
+    #[test]
+    fn benign_helper() {
+        use std::io::Write;
+        let cwd = std::env::current_dir().unwrap();
+        if cwd
+            .file_name()
+            .is_none_or(|n| n != "command workspace with spaces")
+        {
+            return;
+        }
+        let args: Vec<_> = std::env::args().collect();
+        assert!(args.contains(&"br:/main/spaced branch@rep:demo repo@repserver:server:8087".into()));
+        assert!(args.contains(&"literal ; $value".into()));
+        let mode = std::fs::read_to_string(cwd.join("mode")).unwrap();
+        if mode == "failure" {
+            eprint!("benign failure");
+            std::io::stderr().flush().unwrap();
+            std::process::exit(7);
+        }
+        if mode == "output" {
+            print!("cwd={}\noutput with spaces\tand tabs", cwd.display());
+        }
+        std::io::stdout().flush().unwrap();
+        std::process::exit(0);
+    }
+
+    #[test]
+    fn execution_cwd_output_empty_and_failures_in_both_modes() {
+        let temp = tempfile::tempdir().unwrap();
+        let cwd = temp.path().join("command workspace with spaces");
+        std::fs::create_dir(&cwd).unwrap();
+        let command = vec![
+            std::env::current_exe()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+            "--exact".into(),
+            "external::tests::benign_helper".into(),
+            "--nocapture".into(),
+            "--skip".into(),
+            "{{branches}}".into(),
+            "--skip".into(),
+            "literal ; $value".into(),
+        ];
+        std::fs::write(cwd.join("mode"), "output").unwrap();
+        let output = exec_user_command(params(&command, &cwd)).unwrap();
+        assert!(output.contains(&format!("cwd={}", cwd.display())));
+        assert!(output.contains("output with spaces\tand tabs"));
+        assert!(exec_user_command_suspend(params(&command, &cwd)).is_ok());
+        std::fs::write(cwd.join("mode"), "empty").unwrap();
+        // The helper exits before the harness prints results; harness prelude may remain.
+        assert!(!exec_user_command(params(&command, &cwd))
+            .unwrap()
+            .contains("output with spaces"));
+        std::fs::write(cwd.join("mode"), "failure").unwrap();
+        assert!(exec_user_command(params(&command, &cwd))
+            .unwrap_err()
+            .contains("benign failure"));
+        assert!(exec_user_command_suspend(params(&command, &cwd))
+            .unwrap_err()
+            .contains("non-zero"));
+        let missing = vec![cwd.join("missing-helper").to_string_lossy().into_owned()];
+        assert!(exec_user_command(params(&missing, &cwd)).is_err());
+        assert!(exec_user_command_suspend(params(&missing, &cwd)).is_err());
+        for command in [
+            vec![],
+            vec!["".into()],
+            vec![" ".into()],
+            vec!["{{primary_parent}}".into(), "fallback".into()],
+        ] {
+            assert!(exec_user_command(params(&command, &cwd)).is_err());
+            assert!(exec_user_command_suspend(params(&command, &cwd)).is_err());
+        }
+    }
 }

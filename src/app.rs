@@ -67,6 +67,7 @@ pub struct RefreshRequest {
 
 #[derive(Debug)]
 pub struct AppContext {
+    pub workspace: std::path::PathBuf,
     pub keybind: KeyBind,
     pub core_config: CoreConfig,
     pub ui_config: UiConfig,
@@ -253,7 +254,7 @@ impl App<'_> {
                 }
                 AppEvent::OpenUserCommand(n) => {
                     self.clear_image(Some(terminal))?;
-                    self.open_user_command(n, Some(terminal));
+                    self.open_user_command(n, Some(terminal))?;
                 }
                 AppEvent::CloseUserCommand => {
                     terminal.clear()?;
@@ -506,13 +507,7 @@ impl App<'_> {
         &mut self,
         user_command_number: usize,
         terminal: Option<&mut DefaultTerminal>,
-    ) {
-        if self.repository.snapshot().is_some() {
-            self.ec.send(AppEvent::NotifyWarn(
-                "External commands are disabled in read-only Plastic mode".into(),
-            ));
-            return;
-        }
+    ) -> std::io::Result<()> {
         let clear = match extract_user_command_by_number(user_command_number, &self.ctx)
             .map(|c| &c.r#type)
         {
@@ -525,7 +520,7 @@ impl App<'_> {
                 true
             }
             Ok(UserCommandType::Suspend) => {
-                self.open_user_command_suspend(user_command_number);
+                self.open_user_command_suspend(user_command_number)?;
                 true
             }
             Err(err) => {
@@ -541,6 +536,7 @@ impl App<'_> {
                 }
             }
         }
+        Ok(())
     }
 
     fn open_user_command_inline(&mut self, user_command_number: usize) {
@@ -552,6 +548,7 @@ impl App<'_> {
         };
         let (commit, _, refs) = selected_commit_details(self.repository, commit_list_state);
         let result = build_external_command_parameters_and_exec_command(
+            self.repository,
             &commit,
             &refs,
             user_command_number,
@@ -590,6 +587,7 @@ impl App<'_> {
         };
         let (commit, _, refs) = selected_commit_details(self.repository, commit_list_state);
         let result = build_external_command_parameters_and_exec_command(
+            self.repository,
             &commit,
             &refs,
             user_command_number,
@@ -608,15 +606,16 @@ impl App<'_> {
         }
     }
 
-    fn open_user_command_suspend(&mut self, user_command_number: usize) {
+    fn open_user_command_suspend(&mut self, user_command_number: usize) -> std::io::Result<()> {
         let commit_list_state = match self.view {
             View::List(ref mut view) => view.as_list_state(),
             View::Detail(ref mut view) => view.as_list_state(),
             View::UserCommand(ref mut view) => view.as_list_state(),
-            _ => return,
+            _ => return Ok(()),
         };
         let (commit, _, refs) = selected_commit_details(self.repository, commit_list_state);
         match build_external_command_parameters(
+            self.repository,
             &commit,
             &refs,
             user_command_number,
@@ -624,9 +623,13 @@ impl App<'_> {
             &self.ctx,
         ) {
             Ok(params) => {
-                self.ec.suspend();
-                let exec_result = exec_user_command_suspend(params);
-                self.ec.resume();
+                let exec_result = self
+                    .ec
+                    .suspend()
+                    .map_err(|err| format!("Failed to suspend terminal: {err}"))
+                    .and_then(|()| exec_user_command_suspend(params));
+                // Always attempt restoration, including spawn, status and suspend failures.
+                self.ec.resume()?;
 
                 if extract_user_command_refresh_by_number(user_command_number, &self.ctx) {
                     self.view.refresh();
@@ -641,6 +644,7 @@ impl App<'_> {
                 self.ec.send(AppEvent::NotifyError(err));
             }
         }
+        Ok(())
     }
 
     fn close_user_command(&mut self) {
@@ -725,7 +729,9 @@ impl App<'_> {
                 user_command_context,
                 ..
             } => {
-                self.open_user_command(user_command_context.n, None);
+                if let Err(err) = self.open_user_command(user_command_context.n, None) {
+                    self.ec.send(AppEvent::NotifyError(err.to_string()));
+                }
             }
             RefreshViewContext::Refs { refs_context, .. } => {
                 self.open_refs();
@@ -873,17 +879,26 @@ fn extract_user_command_refresh_by_number(user_command_number: usize, ctx: &AppC
 }
 
 fn build_external_command_parameters_and_exec_command(
+    repository: &Repository,
     commit: &Commit,
     refs: &[Ref],
     user_command_number: usize,
     view_area: Rect,
     ctx: &AppContext,
 ) -> Result<String, String> {
-    build_external_command_parameters(commit, refs, user_command_number, view_area, ctx)
-        .and_then(exec_user_command)
+    build_external_command_parameters(
+        repository,
+        commit,
+        refs,
+        user_command_number,
+        view_area,
+        ctx,
+    )
+    .and_then(exec_user_command)
 }
 
 fn build_external_command_parameters<'a>(
+    repository: &Repository,
     commit: &'a Commit,
     refs: &'a [Ref],
     user_command_number: usize,
@@ -891,30 +906,55 @@ fn build_external_command_parameters<'a>(
     ctx: &'a AppContext,
 ) -> Result<ExternalCommandParameters<'a>, String> {
     let command = &extract_user_command_by_number(user_command_number, ctx)?.commands;
-    let target_hash = commit.commit_hash.as_str();
-    let parent_hashes = commit
-        .parent_commit_hashes
+    let snapshot = repository
+        .snapshot()
+        .ok_or("User commands require Plastic history")?;
+    let changeset = snapshot
+        .changesets
         .iter()
-        .map(|c| c.as_str())
-        .collect();
-
-    let mut all_refs = vec![];
-    let mut branches = vec![];
-    let mut remote_branches = vec![];
-    let mut tags = vec![];
-    let mut stash = None;
-    for r in refs {
-        match r {
-            Ref::Tag { .. } => tags.push(r.name()),
-            Ref::Branch { .. } => branches.push(r.name()),
-            Ref::RemoteBranch { .. } => remote_branches.push(r.name()),
-            Ref::Stash { .. } => {
-                stash = Some(r.name());
-                continue; // skip stashes from {{refs}}
+        .find(|cs| cs.key.id.as_str() == commit.commit_hash.as_str())
+        .ok_or("Selected changeset is outside loaded history")?;
+    let target_hash = changeset.key.selector();
+    // Explicit producer evidence, never the first ordinary-merge layout edge.
+    let primary_parent = changeset.primary_parent.as_ref().map(|p| p.selector());
+    let mut parent_hashes: Vec<String> = primary_parent.iter().cloned().collect();
+    for integration in &snapshot.integrations {
+        if integration.kind == crate::plastic::IntegrationKind::Merge
+            && integration.destination == changeset.key
+        {
+            let selector = integration.source.selector();
+            if !parent_hashes.contains(&selector) {
+                parent_hashes.push(selector);
             }
         }
-        all_refs.push(r.name());
     }
+    let mut all_refs = vec![];
+    let mut branches = vec![];
+    let mut tags = vec![];
+    for r in refs {
+        // Match kind AND qualified target; ambiguous names are not resolved by copy_selector.
+        for reference in snapshot.references.iter().filter(|reference| {
+            reference.target.as_ref() == Some(&changeset.key)
+                && reference.name == r.name()
+                && matches!(
+                    (&reference.kind, r),
+                    (crate::plastic::RefKind::Branch, Ref::Branch { .. })
+                        | (crate::plastic::RefKind::Label, Ref::Tag { .. })
+                )
+        }) {
+            let selector = reference.selector();
+            if all_refs.contains(&selector) {
+                continue;
+            }
+            match reference.kind {
+                crate::plastic::RefKind::Branch => branches.push(selector.clone()),
+                crate::plastic::RefKind::Label => tags.push(selector.clone()),
+            }
+            all_refs.push(selector);
+        }
+    }
+    let remote_branches = vec![];
+    let stash = None;
 
     let area_width = view_area.width.saturating_sub(4); // minus the left and right padding
     let area_height = (view_area.height.saturating_sub(1))
@@ -922,6 +962,8 @@ fn build_external_command_parameters<'a>(
         .saturating_sub(1); // minus the top border
     Ok(ExternalCommandParameters {
         command,
+        workspace: &ctx.workspace,
+        primary_parent,
         target_hash,
         parent_hashes,
         all_refs,
@@ -939,6 +981,144 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+
+    fn command_context() -> AppContext {
+        AppContext {
+            workspace: std::path::PathBuf::from("."),
+            keybind: KeyBind::default(),
+            core_config: CoreConfig::default(),
+            ui_config: UiConfig::default(),
+            color_theme: ColorTheme::default(),
+            image_protocol: ImageProtocol::Text,
+        }
+    }
+
+    #[test]
+    fn plastic_command_metadata_uses_explicit_primary_and_bounded_evidence() {
+        use crate::plastic::*;
+        let mut changesets =
+            parse_changesets(include_str!("../tests/fixtures/plastic/changesets.xml")).unwrap();
+        let scope = changesets[0].key.repository.clone();
+        let workspace = parse_status(include_str!("../tests/fixtures/plastic/status.xml")).unwrap();
+        let integrations =
+            parse_integrations(include_str!("../tests/fixtures/plastic/merges.xml"), &scope)
+                .unwrap();
+        let mut references = parse_references(
+            include_str!("../tests/fixtures/plastic/branches.xml"),
+            RefKind::Branch,
+        )
+        .unwrap();
+        let key = changesets
+            .iter()
+            .find(|c| c.key.id.as_str() == "17")
+            .unwrap()
+            .key
+            .clone();
+        references.push(Reference {
+            repository: scope.clone(),
+            kind: RefKind::Label,
+            name: "release with spaces".into(),
+            target: Some(key.clone()),
+            owner: "fixture".into(),
+            date: "2026-01-01T00:00:00Z".into(),
+            comment: "synthetic".into(),
+        });
+        // Keep only the selected merge changeset: both evidenced parents are outside the window.
+        changesets.retain(|c| c.key == key);
+        let snapshot = Snapshot {
+            changesets,
+            integrations,
+            references,
+            workspace,
+            loaded_changeset: key.clone(),
+            missing_endpoints: vec![],
+            warnings: vec![],
+            history_truncated: true,
+            integrations_truncated: false,
+            references_truncated: false,
+        };
+        let mut ctx = command_context();
+        ctx.core_config.user_command.commands.insert(
+            "1".into(),
+            UserCommand {
+                name: "fixture".into(),
+                commands: vec!["benign-helper".into()],
+                r#type: UserCommandType::Inline,
+                refresh: false,
+            },
+        );
+        for primary in [true, false] {
+            let mut snapshot = snapshot.clone();
+            if !primary {
+                snapshot.changesets[0].primary_parent = None;
+            }
+            let repo = crate::git::Repository::from_plastic(
+                Backend::new(".", Limits::default()).unwrap(),
+                snapshot,
+            )
+            .unwrap();
+            let commit = repo.commit(&crate::git::CommitHash::from("17")).unwrap();
+            let refs: Vec<_> = repo
+                .refs(&commit.commit_hash)
+                .into_iter()
+                .cloned()
+                .collect();
+            let params =
+                build_external_command_parameters(&repo, commit, &refs, 1, Rect::default(), &ctx)
+                    .unwrap();
+            assert_eq!(params.target_hash, key.selector());
+            assert_eq!(
+                params.primary_parent,
+                primary.then(|| format!("cs:13@{}", scope.selector()))
+            );
+            assert!(params
+                .parent_hashes
+                .contains(&format!("cs:14@{}", scope.selector())));
+            assert_eq!(
+                params.tags,
+                vec![format!("lb:release with spaces@{}", scope.selector())]
+            );
+            assert!(params
+                .all_refs
+                .iter()
+                .all(|r| r.starts_with("br:") || r.starts_with("lb:")));
+            assert_eq!((params.area_width, params.area_height), (0, 0));
+        }
+    }
+
+    #[test]
+    fn configured_commands_and_refresh_validation() {
+        use garde::Validate;
+        let mut ctx = command_context();
+        assert!(ctx.core_config.user_command.commands.is_empty());
+        assert!(extract_user_command_by_number(1, &ctx).is_err());
+        for kind in [
+            UserCommandType::Inline,
+            UserCommandType::Silent,
+            UserCommandType::Suspend,
+        ] {
+            let command = UserCommand {
+                name: "benign".into(),
+                commands: vec!["helper".into()],
+                r#type: kind.clone(),
+                refresh: true,
+            };
+            assert_eq!(
+                command.validate().is_ok(),
+                !matches!(kind, UserCommandType::Inline)
+            );
+            ctx.core_config
+                .user_command
+                .commands
+                .insert("1".into(), command);
+            assert!(extract_user_command_refresh_by_number(1, &ctx));
+        }
+        let command = ctx.core_config.user_command.commands.get_mut("1").unwrap();
+        command.refresh = false;
+        command.commands.clear();
+        assert!(command.validate().is_err());
+        assert!(!extract_user_command_refresh_by_number(1, &ctx));
+    }
 
     #[rustfmt::skip]
     #[rstest]
