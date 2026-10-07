@@ -31,7 +31,7 @@ fn copy_to_clipboard_custom(value: String, commands: &[String]) -> Result<(), St
     use std::io::Write;
     use std::process::Stdio;
 
-    if commands.is_empty() {
+    if commands.first().is_none_or(|s| s.trim().is_empty()) {
         return Err("No clipboard command specified".to_string());
     }
 
@@ -41,16 +41,28 @@ fn copy_to_clipboard_custom(value: String, commands: &[String]) -> Result<(), St
         .spawn()
         .map_err(|e| format!("Failed to run {}: {e}", commands[0]))?;
 
-    child
+    let write_result = child
         .stdin
         .take()
-        .expect("stdin should be available")
-        .write_all(value.as_bytes())
-        .map_err(|e| format!("Failed to write to {}: {e}", commands[0]))?;
+        .ok_or_else(|| format!("No stdin available for {}", commands[0]))
+        .and_then(|mut stdin| {
+            stdin
+                .write_all(value.as_bytes())
+                .map_err(|e| format!("Failed to write to {}: {e}", commands[0]))
+        });
 
-    child
+    // Close stdin and reap the helper even when writing fails.
+    let status = child
         .wait()
-        .map_err(|e| format!("{} failed: {e}", commands[0]))?;
+        .map_err(|e| format!("{} failed: {e}", commands[0]));
+    write_result?;
+    let status = status?;
+    if !status.success() {
+        return Err(format!(
+            "{} exited with non-zero status: {status}",
+            commands[0]
+        ));
+    }
 
     Ok(())
 }
@@ -201,6 +213,75 @@ fn replace_command_arg(s: &str, params: &ExternalCommandParameters) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Only the subprocess invocation supplies an output path; normal test runs do nothing.
+    #[test]
+    fn benign_clipboard_helper() {
+        use std::io::Read;
+        let args: Vec<_> = std::env::args().collect();
+        let Some(output) = args.windows(2).find_map(|pair| {
+            (pair[0] == "--skip"
+                && Path::new(&pair[1])
+                    .file_name()
+                    .is_some_and(|n| n == "clipboard stdin.txt"))
+            .then(|| &pair[1])
+        }) else {
+            return;
+        };
+        let mut bytes = Vec::new();
+        std::io::stdin().read_to_end(&mut bytes).unwrap();
+        std::fs::write(output, bytes).unwrap();
+        std::process::exit(if args.iter().any(|a| a == "clipboard-helper-failure") {
+            7
+        } else {
+            0
+        });
+    }
+
+    #[test]
+    fn custom_clipboard_stdin_and_failures() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path().join("clipboard helper with spaces 日本語");
+        std::fs::create_dir(&dir).unwrap();
+        let exe = dir.join(format!("benign helper{}", std::env::consts::EXE_SUFFIX));
+        std::fs::copy(std::env::current_exe().unwrap(), &exe).unwrap();
+        let output = dir.join("clipboard stdin.txt");
+        let mut commands = vec![
+            exe.to_string_lossy().into_owned(),
+            "--exact".into(),
+            "external::tests::benign_clipboard_helper".into(),
+            "--nocapture".into(),
+            "--skip".into(),
+            output.to_string_lossy().into_owned(),
+        ];
+        for selector in [
+            "cs:17@rep:synthetic repo@repserver:example.invalid:8087",
+            "br:/main/spaced 日本語 branch@rep:synthetic repo@repserver:example.invalid:8087",
+            "lb:release λ ; $literal@rep:synthetic repo@repserver:example.invalid:8087",
+            "",
+        ] {
+            let config = ClipboardConfig::Custom {
+                commands: commands.clone(),
+            };
+            copy_to_clipboard(selector.into(), &config).unwrap();
+            assert_eq!(std::fs::read(&output).unwrap(), selector.as_bytes());
+        }
+        commands.extend(["--skip".into(), "clipboard-helper-failure".into()]);
+        let error = copy_to_clipboard(
+            "controlled failure".into(),
+            &ClipboardConfig::Custom { commands },
+        )
+        .unwrap_err();
+        assert!(error.contains("non-zero status"), "{error}");
+        assert_eq!(std::fs::read(&output).unwrap(), b"controlled failure");
+
+        let missing = dir.join("missing helper").to_string_lossy().into_owned();
+        for commands in [vec![], vec!["".into()], vec![" ".into()], vec![missing]] {
+            assert!(
+                copy_to_clipboard("unused".into(), &ClipboardConfig::Custom { commands }).is_err()
+            );
+        }
+    }
 
     fn params<'a>(command: &'a [String], workspace: &'a Path) -> ExternalCommandParameters<'a> {
         ExternalCommandParameters {

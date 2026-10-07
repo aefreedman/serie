@@ -798,7 +798,7 @@ impl App<'_> {
         } else {
             self.repository.copy_selector(&value)
         };
-        match copy_to_clipboard(selector, &crate::config::ClipboardConfig::Auto) {
+        match copy_to_clipboard(selector, &self.ctx.core_config.external.clipboard) {
             Ok(_) => {
                 let msg = format!("Copied {name} to clipboard successfully");
                 self.ec.send(AppEvent::NotifySuccess(msg));

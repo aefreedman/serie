@@ -174,13 +174,12 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> Result<()> {
     let args = Args::parse();
-    let (mut core_config, ui_config, graph_config, color_theme, keybind_patch) = config::load()?;
+    let (core_config, ui_config, graph_config, color_theme, keybind_patch) = config::load()?;
     let order = resolve_order(args.order, core_config.option.order);
     if args.dump {
         let repository = git::Repository::load_plastic(&args.workspace, order, args.max_count)?;
         return dump_repository(&repository, args.detail.as_deref());
     }
-    core_config.external.clipboard = config::ClipboardConfig::Auto;
     let keybind = keybind::KeyBind::new(keybind_patch);
 
     let max_count = args.max_count;
