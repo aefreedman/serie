@@ -1,102 +1,123 @@
-# Serie Plastic (read-only MVP)
+# Serie Plastic
 
-A local Plastic SCM / Unity Version Control history browser, adapted from
-[Serie](https://github.com/lusingander/serie) by Kyosuke Fujimoto. Upstream MIT
-license and notices are retained in [LICENSE](LICENSE).
+A terminal history browser for Plastic SCM / Unity Version Control, adapted from [Serie](https://github.com/lusingander/serie) by Kyosuke Fujimoto. The upstream MIT license and notices are preserved in [LICENSE](LICENSE).
 
-## Preliminary Windows release
+Browse changeset graphs, metadata, changed files, branches, and labels. Search history, copy qualified selectors, or export a headless dump. The built-in backend is read-only: it does not switch workspaces, update files, merge, or check in changes.
 
-Version **0.9.3-plastic.1** is a Windows-first preliminary port, not upstream
-Serie 0.9.3. See [release notes](RELEASE_NOTES.md) for scope and limitations.
-The prospective `v0.9.3-plastic.1` release contains only a Windows x64 zip and
-SHA-256 checksum. Extract it into a separate directory; no installer or launcher
-changes are needed. From that directory:
+**Built-in diffs are not included.** Use Plastic's GUI for file and changeset comparisons.
+
+## Quick start: Windows
+
+**0.9.3-plastic.1** is the preliminary Plastic port, based on upstream Serie 0.9.3. Windows x64 is the initial binary target; see [release notes](RELEASE_NOTES.md) for packaging details and limitations.
+
+You need Plastic's `cm` CLI installed on `PATH` and authenticated for your repository. It is not bundled. Extract the release zip into its own directory, then run:
 
 ```powershell
 .\serie.exe --version
 .\serie.exe --workspace "C:/path/to/workspace" --protocol text
 ```
 
-A trusted installed and authenticated `cm` is required; it is not bundled.
-The release workflow prepares a **draft prerelease**, never a latest/stable
-release. Publication requires separate operator approval.
+No installer or launcher changes are needed. If you omit `--workspace`, Serie uses the current directory.
+
+The interactive browser has been used successfully on Windows with `cm` 11.0.16.10371. macOS and Linux runtime behavior is not yet verified; source builds on those platforms are experimental.
+
+## Using the browser
+
+| Key | Action |
+| --- | --- |
+| `j` / `k`, arrow keys | Move through history |
+| `g` / `G` | Go to the first / last row |
+| Page Up / Page Down | Move one page |
+| Enter | Open metadata and load changed files |
+| Backspace / Esc | Close details |
+| `/` | Search |
+| `n` / `N` | Next / previous match |
+| Ctrl-T / Ctrl-G / Ctrl-X | Change search field / case handling / fuzzy matching |
+| Tab | Browse branches and labels |
+| `c` / `C` | Copy the full qualified selector |
+| `R` | Refresh |
+| `?` | Show help |
+| `q` / Ctrl-C | Quit |
+
+In the reference list, copying uses the qualified branch or label selector. `--initial-selection head` selects the workspace's loaded changeset when it is in the current window. That changeset is marked `LOADED`, independently of branch annotations.
+
+### Terminal rendering
+
+`--protocol text` draws Unicode nodes and edges directly in the terminal, without image uploads. It uses the configured graph colors and a `●` for each changeset. Because a node occupies a whole text cell, adjacent nodes can look disconnected in some fonts or terminals.
+
+Automatic protocol selection uses text on ordinary terminals, including Windows; Kitty images on detected Kitty-compatible terminals; and iTerm images on detected iTerm terminals. You can also select `iterm`, `kitty`, or `kitty-unicode` explicitly. Not all graphics protocols have been verified interactively.
+
+### Configuration and external commands
+
+Existing Serie keybindings, UI options, and configuration remain available. Git mailmap settings have no effect, and there is no Git backend option. Some inherited configuration and search names still say “commit”, “hash”, or “tag”; on this port they refer to changesets, changeset numbers, or labels.
+
+Clipboard copying uses the system clipboard by default (`auto`). A configured [external clipboard command](docs/src/configurations/config-file-format.md#coreexternalclipboard) instead receives the exact qualified selector as UTF-8 on stdin, without an added newline. It runs without a shell and reports failures, but has no timeout.
+
+Optional [user commands](docs/src/features/user-command.md) run in the selected workspace. None are configured by default, including diff commands. **Only configure commands you trust:** user commands and external clipboard programs can modify files or have other effects, even though the history backend is read-only.
+
+## Changeset ordering
+
+Choose `--order chrono|topo` (or `-o`) to override `[core.option] order` in your configuration. The default is `chrono`. Ordering applies to the initial load, refresh, and headless dumps.
+
+- **`chrono`** picks the newest eligible changeset. Children appear before their primary and ordinary merge parents, even when timestamps are out of order.
+- **`topo`** starts at the newest eligible tip and follows newly available parents depth-first, preferring primary parents over ordinary merge parents. Shared parents wait for all loaded children. This keeps branch runs together where ancestry allows; it does not group by branch name.
+
+Timestamp comparisons account for timezone offsets. Ties use descending numeric changeset IDs, then qualified selectors. Merge-parent traversal is also deterministic. Neither ordering mode changes the query window or fills in missing history.
+
+## What the graph shows
+
+Graph edges represent **explicit primary parents and ordinary merges**, and only when both qualified endpoints are loaded. Primary parents remain identifiable in metadata; typed integration records and their optional bases are also available in details and dumps.
+
+Cherry-pick, subtractive, interval, and unknown integrations are reported with warnings rather than drawn as ordinary ancestry. Branch hierarchy and consecutive changeset numbers do not imply edges. Cycles in loaded primary/ordinary merge ancestry cause an error before rendering.
+
+Branch and label annotations use the server's `CHANGESET` field, not inferred branch tips. Unsupported reference targets and out-of-window parents or targets are reported, not replaced with invented graph nodes. Warnings appear when history loads and again in detail views.
+
+### Limits
+
+- One qualified repository at a time.
+- By default, up to 500 changesets, 2,000 integrations, and 2,000 references per kind. `--max-count` accepts 1–10,000 changesets.
+- Each `cm` command has a 30-second deadline, an 8 MiB stdout limit, and a 64 KiB stderr limit. Failed commands, oversized output, and invalid UTF-8 or XML produce errors. Oversized details are not paginated.
+- Refresh repeats the bounded load and rechecks the selected workspace. Sequential server queries are not a transactional snapshot: concurrent check-ins or reference edits can affect the results.
+- When workspace status and scoped queries return different server identities, the backend preserves the original workspace identity and warns about the alias mapping.
+
+Serie assumes a trusted `cm` executable. It launches `cm` directly through `PATH`, without a shell or a hardcoded installation path, and supports workspace paths containing spaces. Execution limits apply to the direct child process; they do not provide containment for a hostile process tree.
+
+## Headless inspection
+
+Use `--dump` to inspect history without a terminal, graphics protocol, clipboard, or Git installation:
+
+```powershell
+.\serie.exe --workspace "C:/path/to/workspace" --dump --max-count 2
+.\serie.exe --workspace "C:/path/to/workspace" --dump --detail 16
+```
+
+A configuration file is optional. If present, it is validated, and its ordering setting applies unless overridden by `--order`.
+
+The dump includes qualified selectors, full numeric IDs, metadata, primary edges, typed integration links and bases, branch/label annotations, workspace identity, graph markers, truncation flags, missing endpoints, and warnings. Rows follow the selected ordering; metadata retains the server's values. Comments and paths are escaped, not emitted as shell commands.
+
+`--detail NUMBER` adds changed-path status, source and destination paths, and revision and parent revision IDs. The changeset must be in the loaded window. Detail errors exit nonzero rather than returning partial success.
 
 ## Build from source
 
-Requires Rust 1.88+ to build and a trusted installed `cm` on PATH, authenticated
-for the workspace repository. Tested with Windows and cm 11.0.16.10371.
-`cm` is launched directly through PATH on Windows, macOS, and Linux, without a
-shell or a hardcoded install location; workspace paths may contain spaces.
+Requires **Rust 1.88+**. To browse a real repository, you also need an installed, trusted, authenticated `cm` on `PATH`.
+
+Windows:
 
 ```powershell
 cargo build --locked
 .\target\debug\serie.exe --workspace "C:/path/to/workspace" --protocol text
 ```
 
-Experimental source build on macOS/Linux (runtime unverified):
+macOS / Linux (experimental):
 
 ```sh
 cargo build --locked
 ./target/debug/serie --workspace "/path/to/workspace" --protocol text
 ```
 
-The workspace defaults to the current directory. It is used as the cwd for
-read-only `cm status`, repository-scoped `cm find`, and lazy `cm log` queries.
-The built-in history backend performs no switch/update/merge/checkin or filesystem writes there.
-The production executable does not include the legacy Git query implementation;
-upstream Git graph regression tests operate only in temporary test repositories.
-Explicitly configured [user commands](docs/src/features/user-command.md) run in
-the selected workspace as trusted operator intent and may have effects. No commands
-are configured by default. Clipboard copying defaults to the system clipboard library (`auto`). Explicit
-`core.external.clipboard` custom configuration is honored: a trusted executable
-receives the exact qualified selector as UTF-8 stdin without an added newline.
-It runs without a shell, reports failures, and has no timeout; it can block or
-have effects. See [clipboard config](docs/src/configurations/config-file-format.md#coreexternalclipboard).
-Built-in file/changeset diffing is intentionally out of scope, including binary
-diffs. Use Plastic's own GUI for changeset comparisons. The port focuses on
-history graphs, metadata and changed-file lists; this is an intentional difference
-from upstream Serie's default Git diff action. Explicit user commands remain an
-optional escape hatch, but no diff command is configured by default.
+On Debian/Ubuntu, install `pkg-config` and `libwayland-dev` before building. Linux clipboard operations need a working X11 or Wayland desktop session; Windows and macOS use native clipboard APIs. Clipboard initialization is lazy, so headless dumps and tests do not need desktop access.
 
-## Headless validation
-
-No terminal, image protocol, clipboard, or Git installation is needed. A config
-file is optional; if present it is validated, and its ordering option applies
-unless overridden by `--order`:
-
-```powershell
-.\target\debug\serie.exe --workspace "C:/path/to/workspace" --dump --detail 16
-.\target\debug\serie.exe --workspace "C:/path/to/workspace" --dump --max-count 2
-```
-
-`--dump` prints deterministic qualified changeset selectors, full numeric IDs,
-metadata, primary edges, separately typed integration links (including base),
-branch/label producer annotations, the original workspace identity, graph marker,
-truncation flags, missing endpoints, and warnings. `--detail NUMBER` adds raw
-changed-path status, source/destination paths, revision and parent revision IDs;
-it must be inside the loaded window. Errors exit nonzero rather than returning
-partial detail success. Dump comments/paths are escaped, not shell commands.
-
-Default limits: 500 changesets, 2000 integrations, 2000 references per kind;
-`--max-count` accepts 1..10000. Each cm command has a 30-second deadline, 8 MiB
-stdout and 64 KiB stderr cap. Failed, oversized, invalid UTF-8/XML output fails
-explicitly. Refresh reruns the same bounded load and rechecks workspace selection.
-
-## Portability checks
-
-CI runs `cargo fmt --all -- --check`, `cargo test --locked`, and
-`cargo build --locked` on native Windows, macOS, and Linux runners with stable
-Rust and the Cargo manifest's minimum Rust version (1.88). CI needs Git for
-temporary Git regression repositories, but **no cm installation, credentials,
-real workspace, terminal, or clipboard session**. Backend process tests use an
-isolated fake executable, including PATH lookup and workspace paths with spaces.
-Graph image tests use an embedded font, not system fonts.
-
-On Debian/Ubuntu, install `pkg-config` and `libwayland-dev` before building
-(the clipboard dependency includes Wayland support). Windows/macOS use their
-native clipboard APIs; Linux clipboard operations require a working X11 or
-Wayland desktop session and can fail on headless hosts. Clipboard initialization
-is lazy, so headless dumps and tests do not require desktop access.
+### Development checks
 
 ```sh
 cargo fmt --all -- --check
@@ -104,98 +125,8 @@ cargo test --locked
 cargo build --locked
 ```
 
-The native CI matrix is prospective coverage, **not evidence of completed
-macOS/Linux runs**. Local validation was Windows only. Inherited cross-target
-builds are retained as manual, nonblocking workflow jobs and remain unverified
-for this port; inherited clippy warnings are reported by a nonblocking job.
-The separate release workflow is restricted to the explicit Plastic preliminary
-tag and packages Windows x64 only; it does not publish to Cargo.
+Tests need Git for temporary upstream regression repositories, but do not need `cm`, credentials, a real workspace, a terminal, or a clipboard session. Backend process tests use an isolated fake executable, including tests for `PATH` lookup and workspace paths with spaces. Graph image tests use an embedded font. The production executable does not include the legacy Git query backend.
 
-## TUI
+The CI configuration runs these checks on native Windows, macOS, and Linux runners with stable Rust and Rust 1.88. This describes the configured matrix, not completed runs: local validation for this release was Windows-only. Nonordinary integration types have synthetic test coverage only. Inherited cross-target builds are manual, nonblocking jobs; clippy is also nonblocking.
 
-- `j`/`k` or arrows: navigate; `g`/`G`: first/last; Page Up/Down: page.
-- Enter: metadata and lazy changed paths; Backspace/Esc: close.
-- `/`: search; `n`/`N`: next/previous match; Ctrl-T: search field;
-  Ctrl-G: case handling; Ctrl-X: fuzzy matching.
-- Tab: branches/labels; `R`: refresh; `?`: help; `q` or Ctrl-C: quit.
-- `c` and `C`: copy the full qualified changeset selector (no hash slicing).
-  In the ref list, copy the qualified branch/label selector.
-- `--initial-selection head`: select the loaded workspace changeset if visible;
-  the graph marks it `LOADED`, independent of branch annotations.
-
-`--protocol text` draws Unicode nodes/edges directly in Ratatui, with no image
-escapes/uploads. It uses the configured graph palette for nodes and edges.
-Every changeset uses a distinct `●` node marker. Non-node edge segments use light
-strokes and composed junctions, with continuity on intervening rows and horizontal
-continuations in double-width mode. A node occupies one text cell, so connection
-arms cannot also be drawn in that cell: vertically adjacent nodes can appear
-separated depending on the terminal/font. This text-cell limitation remains
-unresolved; dots are not replaced by strokes to hide it.
-Auto chooses text on ordinary terminals (including Windows),
-Kitty on detected Kitty-compatible terminals, or iTerm images on detected iTerm.
-Explicit `--protocol iterm`, `kitty`, and `kitty-unicode` remain available.
-The operator reports that the interactive tool is functional on Windows. This
-is user-reported runtime evidence, not an automated interactive-terminal test or
-verification of every graphics protocol. Text row construction,
-navigation/search regressions, and headless loading have automated coverage.
-macOS/Linux runtime remains unverified. Font/terminal behavior can still vary.
-
-Existing Serie UI/keybind/config options remain for compatibility. Git-specific
-mailmap settings are inert; there is no Git backend CLI selection. Some
-internal config/search terminology still uses "commit", "hash", or "tag";
-these mean changeset number and label on the Plastic path.
-
-## Changeset ordering
-
-`--order chrono|topo` (or `-o`) overrides `[core.option] order` in config;
-without either, `chrono` is used. The choice applies to initial load, refresh,
-and `--dump` rows. Upstream Serie uses Git `--date-order` and `--topo-order`;
-Plastic implements their child-before-parent and branch-cohesion intent locally:
-
-- **chrono** chooses the newest timestamp among changesets whose loaded children
-  have all been emitted. Primary and ordinary merge parents always follow their
-  children, even with timestamp skew; this is not a naive timestamp sort.
-- **topo** starts with the newest eligible tip, then follows newly unblocked
-  parents depth-first before returning to other tips. Primary parents are preferred
-  over ordinary merge parents when both become eligible. Shared parents wait for
-  every loaded child, keeping branch runs together where the DAG permits it;
-  this is not branch-name grouping or an alias for chrono.
-
-Date-priority choices (chrono's ready set and topo's remaining tips) compare
-instants including timezone offsets; ties choose descending numeric changeset IDs,
-then qualified selectors. Topo's newly unblocked ancestry takes precedence over
-tip timestamps. Ordinary merge parent traversal is deterministic by qualified
-destination/source selector and object ID. Neither mode changes the bounded newest-ID query window, adds missing
-nodes, invents ancestry, or rewrites dates, primary parents, integrations, or raw
-snapshot evidence. Dump row order follows the selected order while metadata retains
-producer values. Ordering only constrains loaded, qualified primary and ordinary
-merge endpoints; other integration types remain evidence, not ancestry.
-
-## Honest graph boundaries
-
-The drawing represents **explicit primary parents plus ordinary merge integration
-links**. Primary parents are kept first; ordinary merges add deduplicated layout
-edges only when both qualified endpoints are loaded. Merge edges use the existing
-merge layout/style (not a separate color legend). The original primary parent is
-identified explicitly in metadata, and typed integration records remain separate
-in the headless dump and endpoint details with their optional base. Cherry-pick,
-subtractive, interval, and unknown integration types are omitted from the drawing
-with a warning, not misrepresented as ordinary ancestry. Branch hierarchy and
-consecutive changeset numbers do not imply edges. Ordinary merge links with
-out-of-window endpoints are also disclosed and not drawn.
-
-Branch/label annotations use the producer's `CHANGESET` field, not inferred
-branch tips. References without supported qualified targets are disclosed and
-retained in the dump, not invented as graph nodes. Out-of-window targets/parents
-remain boundaries; no placeholder changesets are fabricated. The installed cm
-returns different server identities for status and scoped find; the backend
-retains original status identity and reports its scoped alias mapping warning.
-All backend warnings are shown at load and again in detail views.
-
-Single qualified repository only. Sequential server queries are not a
-transactional snapshot; concurrent checkins/reference edits can race. Live
-fixtures cover labels using cm's MARKER records, including a label on sandbox
-changeset 16. Nonordinary integration types have synthetic test coverage only. Oversized details fail, not paginate.
-Direct child execution is bounded, but there is no hostile process-tree
-containment: trusted cm is assumed. Cycles in loaded primary/ordinary merge
-ancestry fail explicitly before graph rendering.
+The release workflow packages Windows x64 for the explicit Plastic preliminary-release tag. It creates a draft prerelease, does not mark it as latest, and does not publish to Cargo. Publishing the draft is a separate step.
