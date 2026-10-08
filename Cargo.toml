@@ -1,13 +1,13 @@
 [package]
 name = "serie"
-version = "0.9.3"
-description = "A rich git commit graph in your terminal, like magic"
+version = "0.9.3-plastic.1"
+description = "A read-only Plastic SCM / Unity Version Control history browser in your terminal"
 authors = ["Kyosuke Fujimoto <kyoro.f@gmail.com>"]
-homepage = "https://github.com/lusingander/serie"
-repository = "https://github.com/lusingander/serie"
+homepage = "https://github.com/aefreedman/serie"
+repository = "https://github.com/aefreedman/serie"
 readme = "README.md"
 license = "MIT"
-keywords = ["git", "cli", "tui", "terminal"]
+keywords = ["plastic-scm", "unity", "cli", "tui", "terminal"]
 categories = ["command-line-utilities"]
 edition = "2021"
 rust-version = "1.88.0"

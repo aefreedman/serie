@@ -4,7 +4,24 @@ A local Plastic SCM / Unity Version Control history browser, adapted from
 [Serie](https://github.com/lusingander/serie) by Kyosuke Fujimoto. Upstream MIT
 license and notices are retained in [LICENSE](LICENSE).
 
-## Run
+## Preliminary Windows release
+
+Version **0.9.3-plastic.1** is a Windows-first preliminary port, not upstream
+Serie 0.9.3. See [release notes](RELEASE_NOTES.md) for scope and limitations.
+The prospective `v0.9.3-plastic.1` release contains only a Windows x64 zip and
+SHA-256 checksum. Extract it into a separate directory; no installer or launcher
+changes are needed. From that directory:
+
+```powershell
+.\serie.exe --version
+.\serie.exe --workspace "C:/path/to/workspace" --protocol text
+```
+
+A trusted installed and authenticated `cm` is required; it is not bundled.
+The release workflow prepares a **draft prerelease**, never a latest/stable
+release. Publication requires separate operator approval.
+
+## Build from source
 
 Requires Rust 1.88+ to build and a trusted installed `cm` on PATH, authenticated
 for the workspace repository. Tested with Windows and cm 11.0.16.10371.
@@ -16,7 +33,7 @@ cargo build --locked
 .\target\debug\serie.exe --workspace "C:/path/to/workspace" --protocol text
 ```
 
-On macOS/Linux:
+Experimental source build on macOS/Linux (runtime unverified):
 
 ```sh
 cargo build --locked
@@ -91,7 +108,8 @@ The native CI matrix is prospective coverage, **not evidence of completed
 macOS/Linux runs**. Local validation was Windows only. Inherited cross-target
 builds are retained as manual, nonblocking workflow jobs and remain unverified
 for this port; inherited clippy warnings are reported by a nonblocking job.
-No release/publication workflow is changed by this pass.
+The separate release workflow is restricted to the explicit Plastic preliminary
+tag and packages Windows x64 only; it does not publish to Cargo.
 
 ## TUI
 
@@ -116,9 +134,11 @@ unresolved; dots are not replaced by strokes to hide it.
 Auto chooses text on ordinary terminals (including Windows),
 Kitty on detected Kitty-compatible terminals, or iTerm images on detected iTerm.
 Explicit `--protocol iterm`, `kitty`, and `kitty-unicode` remain available.
-Terminal graphics and an actual interactive Windows terminal session have **not**
-been verified; text row construction, navigation/search regressions, and headless
-loading have automated coverage. Font/terminal behavior can still vary.
+The operator reports that the interactive tool is functional on Windows. This
+is user-reported runtime evidence, not an automated interactive-terminal test or
+verification of every graphics protocol. Text row construction,
+navigation/search regressions, and headless loading have automated coverage.
+macOS/Linux runtime remains unverified. Font/terminal behavior can still vary.
 
 Existing Serie UI/keybind/config options remain for compatibility. Git-specific
 mailmap settings are inert; there is no Git backend CLI selection. Some
